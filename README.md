@@ -45,13 +45,16 @@ A manifest is a plain text file: one version header, then one `<sha256>\t<size>\
 ```text
 trireme/
 ├── Cargo.toml                <- crate manifest; no dependencies
+├── Cargo.lock                <- pinned versions for reproducible builds
 ├── src/
 │   ├── main.rs               <- process entry point and exit code
 │   ├── lib.rs                <- public library surface
 │   ├── cli.rs                <- argument parsing and human-readable output
 │   ├── sha256.rs             <- streaming SHA-256, written in-tree
 │   └── manifest.rs           <- collect, serialise, parse and compare trees
-├── tests/cli.rs              <- end-to-end proofs through the real binary
+├── tests/
+│   └── cli.rs                <- end-to-end proofs through the real binary
+├── assets/                   <- generated logo and social preview candidates
 ├── inventory.py              <- AI-compat inventory: kind|name|locator lines (ADR-315)
 ├── demo.py                   <- AI-compat scripted drive: WORLD-DELTA lines (ADR-315)
 ├── README.md
