@@ -15,8 +15,13 @@ A manifest is a plain text file: one version header, then one `<sha256>\t<size>\
   ```
 - **Typical use**:
   ```bash
-  cargo run -- manifest . -o trireme.manifest
-  cargo run -- verify . trireme.manifest
+  # Best: write the snapshot outside the tree you are snapshotting.
+  cargo run -- manifest ./src -o ../src.manifest
+  cargo run -- verify ./src ../src.manifest
+
+  # If you keep the manifest inside the tree, exclude its own name:
+  cargo run -- manifest . -o trireme.manifest -e trireme.manifest
+  cargo run -- verify . trireme.manifest -e trireme.manifest
   # exit 0 = clean, 1 = added/missing/changed files, 2 = bad input or I/O error
   ```
 
