@@ -1,0 +1,13 @@
+[package]
+name = "trireme"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic, content-addressed directory manifests with SHA-256, verified offline."
+license = "LicenseRef-AL-1.1"
+readme = "README.md"
+keywords = ["cli", "checksum", "manifest", "offline"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+
+[dev-dependencies]

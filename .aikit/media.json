@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "name": "trireme",
+  "repo": "Trireme",
+  "has_ui": false,
+  "ui_kind": "library",
+  "palette": [
+    "#120907",
+    "#302612",
+    "#f58c66",
+    "#ccf58e"
+  ],
+  "motif": "notes",
+  "layout": "editorial",
+  "assets": {
+    "logo": {
+      "path": "assets/logo.svg",
+      "status": "pending_review",
+      "commit": "",
+      "generated_at": "2026-11-19T01:01:54",
+      "review": null
+    },
+    "social_preview": {
+      "path": "assets/social-preview.svg",
+      "status": "pending_review",
+      "commit": "",
+      "generated_at": "2026-11-19T01:01:54",
+      "review": null
+    }
+  },
+  "screenshots": []
+}
