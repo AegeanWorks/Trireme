@@ -43,4 +43,8 @@ if __name__ == "__main__":
     print('output|history-filter-status|web/index.html#history-filter-status')
     print('select|history-sort|web/index.html#history-sort')
     print('button|restore|web/index.html#history-list button.restore')
+    print('button|open-help|web/index.html#open-help')
+    print('panel|help|web/index.html#help-panel')
+    print('output|help-text|web/index.html#help-text')
+    print('button|close-help|web/index.html#close-help')
     print('cli|help|--help')

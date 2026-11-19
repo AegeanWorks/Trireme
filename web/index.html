@@ -13,7 +13,16 @@
       <h1>Trireme</h1>
       <p class="tagline">Offline sailing route planner</p>
     </div>
+    <button id="open-help" type="button" class="secondary">Help / shortcuts</button>
   </header>
+
+  <section id="help-panel" class="help-panel" hidden aria-labelledby="help-heading">
+    <div class="help-head">
+      <h2 id="help-heading">Help</h2>
+      <button id="close-help" type="button" class="secondary">Close</button>
+    </div>
+    <pre id="help-text" class="readout"></pre>
+  </section>
 
   <main>
     <section class="panel" aria-labelledby="chart-title">

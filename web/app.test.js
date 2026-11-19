@@ -45,6 +45,8 @@ const {
   parseLocalPresets,
   mergeLocalPresets,
   localPresetsToJson,
+  HELP_SECTIONS,
+  formatHelpText,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -70,6 +72,7 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
+    "open-help", "help-panel", "help-text", "close-help",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "file", "plan", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
@@ -514,6 +517,21 @@ test("saving a preset replaces a name and keeps names sorted", () => {
   assert.equal(doc.schema, "trireme.presets/1");
 });
 
+test("help text covers CLI commands, chart syntax and shortcuts", () => {
+  const text = formatHelpText();
+  assert.match(text, /^TRIREME HELP\n/);
+  assert.match(text, /CLI COMMANDS/);
+  assert.match(text, /CHART SYNTAX/);
+  assert.match(text, /UI CONTROLS AND SHORTCUTS/);
+  assert.match(text, /route <file> --from X,Y --to X,Y/);
+  assert.match(text, /TRIREME-CHART v1/);
+  assert.match(text, /Ctrl\+Shift\+C/);
+  assert.equal(text, formatHelpText());
+  assert.equal(formatHelpText({ commands: [["x", "does x"]], syntax: [], controls: [] }),
+    "TRIREME HELP\n\nCLI COMMANDS\n  x  does x\n\nCHART SYNTAX\n\nUI CONTROLS AND SHORTCUTS\n");
+  assert.equal(Object.keys(HELP_SECTIONS).length, 3);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -531,6 +549,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("save-preset"\)/);
   assert.match(source, /savePresetButton\.addEventListener\("click", saveNamedPreset\)/);
   assert.match(source, /localPreset\.addEventListener\("change", applyLocalPreset\)/);
+  assert.match(source, /getElementById\("open-help"\)\.addEventListener\("click", openHelp\)/);
+  assert.match(source, /getElementById\("close-help"\)\.addEventListener\("click", closeHelp\)/);
+  assert.match(source, /helpText\.textContent = formatHelpText\(\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

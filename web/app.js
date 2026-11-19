@@ -1,5 +1,53 @@
 "use strict";
 
+const HELP_SECTIONS = {
+  commands: [
+    ["chart <file> [--json]", "Describe grid, wind, land and currents"],
+    ["route <file> --from X,Y --to X,Y [--ascii] [--json]", "Plan the fastest route"],
+    ["serve [--port N] [--project DIR]", "Serve this browser UI on 127.0.0.1"],
+    ["help | --version", "Show CLI help or version"],
+  ],
+  syntax: [
+    ["TRIREME-CHART v1", "Required first non-comment line"],
+    ["grid <w> <h>", "Required grid size, exactly once"],
+    ["wind <dx> <dy>", "Required wind vector, each -1..1"],
+    ["land <x> <y>", "Impassable cell; repeatable"],
+    ["current <x> <y> <dx> <dy>", "Local flow; repeatable"],
+    ["# text / blank lines", "Ignored"],
+  ],
+  controls: [
+    ["Ctrl+Enter", "Plan the current query"],
+    ["Ctrl+Shift+C", "Compare with calm water"],
+    ["Plan route", "Compute and show the route"],
+    ["Compare with calm", "Zero wind and currents, then compare"],
+    ["Save as preset", "Store chart and endpoints locally"],
+    ["Export route (JSON/CSV)", "Download the last route"],
+    ["Copy summary", "Copy a plain-text report"],
+    ["Import / Export JSON", "Move route history between browsers"],
+    ["Filter / Sort history", "Search and order saved plans"],
+  ],
+};
+
+function formatHelpText(sections) {
+  const source = sections || HELP_SECTIONS;
+  const titles = [
+    ["commands", "CLI COMMANDS"],
+    ["syntax", "CHART SYNTAX"],
+    ["controls", "UI CONTROLS AND SHORTCUTS"],
+  ];
+  const lines = ["TRIREME HELP", ""];
+  for (const [key, title] of titles) {
+    const rows = Array.isArray(source[key]) ? source[key] : [];
+    const width = rows.reduce((widest, row) => Math.max(widest, String(row[0]).length), 0);
+    lines.push(title);
+    for (const row of rows) {
+      lines.push("  " + String(row[0]).padEnd(width) + "  " + String(row[1]));
+    }
+    lines.push("");
+  }
+  return lines.join("\n").trimEnd() + "\n";
+}
+
 const PRESETS = {
   aegean: {
     chart:
@@ -587,6 +635,8 @@ if (typeof module !== "undefined" && module.exports) {
     filterHistory,
     historyFilterSummary,
     sortHistory,
+    HELP_SECTIONS,
+    formatHelpText,
     LOCAL_PRESETS_KEY,
     LOCAL_PRESET_LIMIT,
     normalizePresetName,
@@ -614,6 +664,8 @@ if (typeof module !== "undefined" && module.exports) {
 }
 
 if (typeof document !== "undefined") {
+  const helpPanel = document.getElementById("help-panel");
+  const helpText = document.getElementById("help-text");
   const chart = document.getElementById("chart");
   const from = document.getElementById("from");
   const to = document.getElementById("to");
@@ -661,6 +713,15 @@ if (typeof document !== "undefined") {
     issuesPanel.hidden = issues.length === 0;
     issuesPanel.textContent = formatChartIssues(issues);
     return issues.length;
+  }
+
+  function openHelp() {
+    helpText.textContent = formatHelpText();
+    helpPanel.hidden = false;
+  }
+
+  function closeHelp() {
+    helpPanel.hidden = true;
   }
 
   function storedPresets() {
@@ -1121,8 +1182,12 @@ if (typeof document !== "undefined") {
     setState("Preset loaded.", "busy");
     reset();
   });
+  document.getElementById("open-help").addEventListener("click", openHelp);
+  document.getElementById("close-help").addEventListener("click", closeHelp);
   document.addEventListener("keydown", (event) => {
-    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+    if (event.key === "Escape" && !helpPanel.hidden) {
+      closeHelp();
+    } else if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
       event.preventDefault();
       compare();
     } else if (event.ctrlKey && event.key === "Enter") {

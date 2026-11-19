@@ -29,6 +29,20 @@ body {
   padding: 20px 28px;
   border-bottom: 1px solid var(--line);
 }
+.masthead > button { margin-left: auto; }
+
+.help-panel {
+  margin: 20px 28px 0;
+  padding: 18px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  max-width: 1500px;
+}
+.help-panel[hidden] { display: none; }
+.help-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.help-head h2 { margin: 0; }
+.help-panel .readout { margin-top: 14px; white-space: pre-wrap; line-height: 1.7; }
 
 .mark {
   font-size: 36px;
