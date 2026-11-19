@@ -22,6 +22,7 @@ const {
   formatStepTimes,
   formatRouteSummary,
   formatRouteCommand,
+  formatMapForClipboard,
   HISTORY_KEY,
   HISTORY_LIMIT,
   historyEntry,
@@ -119,7 +120,7 @@ test("the page declares every control the script binds", () => {
     "duplicate-preset-name", "duplicate-preset",
     "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-current",
     "validate-presets", "preset-validation", "diff-output",
-    "file", "plan", "clear-editor", "compare", "save", "copy-command",
+    "file", "plan", "clear-editor", "compare", "save", "copy-command", "copy-map",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -948,6 +949,20 @@ test("CLI command formatter quotes paths and normalizes endpoints", () => {
   assert.match(formatHelpText(), /Copy command/);
 });
 
+test("clipboard map keeps the drawing and its legend", () => {
+  const route = { from: [0, 0], to: [2, 0], ascii: "SoG\n~~~" };
+  assert.equal(
+    formatMapForClipboard(route, route.from, route.to),
+    "Trireme map 0,0 -> 2,0\n" +
+      "S start \u00b7 G goal \u00b7 o route \u00b7 # land \u00b7 ~ water\n" +
+      "SoG\n~~~\n"
+  );
+  assert.match(formatMapForClipboard(route, null, null), /Trireme map 0,0 -> 2,0/);
+  assert.throws(() => formatMapForClipboard(null, [0, 0], [1, 1]), /No route map/);
+  assert.throws(() => formatMapForClipboard({}, [0, 0], [1, 1]), /No route map/);
+  assert.match(formatHelpText(), /Copy map/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1023,6 +1038,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-command"\)/);
   assert.match(source, /copyCommandButton\.addEventListener\("click", copyRouteCommand\)/);
   assert.match(source, /formatRouteCommand\(chartName, from\.value, to\.value\)/);
+  assert.match(source, /getElementById\("copy-map"\)/);
+  assert.match(source, /copyMapButton\.addEventListener\("click", copyRouteMap\)/);
+  assert.match(source, /formatMapForClipboard\(lastRoute/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);

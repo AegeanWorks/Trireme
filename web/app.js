@@ -37,6 +37,7 @@ const HELP_SECTIONS = {
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Copy command", "Copy the cargo command for this query"],
+    ["Copy map", "Copy the ASCII route map with its legend"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Copy history summary", "Copy the history overview to the clipboard"],
@@ -1184,6 +1185,22 @@ function formatRouteCommand(chartFile, from, to) {
   );
 }
 
+function formatMapForClipboard(route, from, to) {
+  if (!route || typeof route.ascii !== "string") {
+    throw new Error("No route map to copy.");
+  }
+  const point = (value) => (Array.isArray(value) ? value.join(",") : String(value || "?"));
+  return (
+    "Trireme map " +
+    point(from || route.from) +
+    " -> " +
+    point(to || route.to) +
+    "\nS start \u00b7 G goal \u00b7 o route \u00b7 # land \u00b7 ~ water\n" +
+    route.ascii +
+    "\n"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1261,6 +1278,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatStepTimes,
     formatRouteSummary,
     formatRouteCommand,
+    formatMapForClipboard,
     comparisonToCsv,
     comparisonCsvFilename,
   };
@@ -1304,6 +1322,7 @@ if (typeof document !== "undefined") {
   const swapEndpointsButton = document.getElementById("swap-endpoints");
   const copyChartButton = document.getElementById("copy-chart");
   const copyCommandButton = document.getElementById("copy-command");
+  const copyMapButton = document.getElementById("copy-map");
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const status = document.getElementById("status");
@@ -2078,6 +2097,29 @@ if (typeof document !== "undefined") {
     }
   }
 
+  async function copyRouteMap() {
+    if (lastRoute === null) {
+      setState("Plan a route before copying its map.", "bad");
+      return;
+    }
+    const text = formatMapForClipboard(lastRoute, lastRoute.from, lastRoute.to);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Route map copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
   function exportComparisonCsv() {
     if (lastComparison === null) {
       setState("Run a comparison before exporting it.", "bad");
@@ -2182,6 +2224,7 @@ if (typeof document !== "undefined") {
   document.getElementById("export-csv").addEventListener("click", exportCsv);
   document.getElementById("copy-summary").addEventListener("click", copySummary);
   copyCommandButton.addEventListener("click", copyRouteCommand);
+  copyMapButton.addEventListener("click", copyRouteMap);
   document.getElementById("compare").addEventListener("click", compare);
   document.getElementById("export-compare-csv").addEventListener("click", exportComparisonCsv);
   clearHistory.addEventListener("click", () => {
