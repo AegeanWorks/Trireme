@@ -264,6 +264,58 @@ pub fn fingerprint(text: &str) -> Result<String, String> {
     Ok(format!("{hash:016x}"))
 }
 
+/// One line of a chart comparison.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ChartDiffRow {
+    pub line: usize,
+    pub kind: &'static str,
+    pub left: String,
+    pub right: String,
+}
+
+fn diff_lines(text: &str) -> Vec<String> {
+    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+    let mut lines: Vec<String> = normalized.split('\n').map(str::to_string).collect();
+    if lines.last().is_some_and(String::is_empty) {
+        lines.pop();
+    }
+    lines
+}
+
+/// Line-by-line comparison of two charts, for the preset diff panel.
+pub fn diff(left_text: &str, right_text: &str) -> Vec<ChartDiffRow> {
+    let left = diff_lines(left_text);
+    let right = diff_lines(right_text);
+    let mut rows = Vec::new();
+    for index in 0..left.len().max(right.len()) {
+        let before = left.get(index);
+        let after = right.get(index);
+        match (before, after) {
+            (Some(a), Some(b)) if a == b => {}
+            (Some(a), Some(b)) => rows.push(ChartDiffRow {
+                line: index + 1,
+                kind: "changed",
+                left: a.clone(),
+                right: b.clone(),
+            }),
+            (None, Some(b)) => rows.push(ChartDiffRow {
+                line: index + 1,
+                kind: "added",
+                left: String::new(),
+                right: b.clone(),
+            }),
+            (Some(a), None) => rows.push(ChartDiffRow {
+                line: index + 1,
+                kind: "removed",
+                left: a.clone(),
+                right: String::new(),
+            }),
+            (None, None) => {}
+        }
+    }
+    rows
+}
+
 /// One line-numbered problem found in a chart.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChartIssue {
@@ -421,6 +473,22 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn diff_classifies_changed_added_and_removed_lines() {
+        let left = "TRIREME-CHART v1\r\ngrid 4 1\r\nwind 0 0\r\nland 2 0\r\n";
+        let right = "TRIREME-CHART v1\ngrid 4 1\nwind 1 0\n";
+        let rows = diff(left, right);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].line, 3);
+        assert_eq!(rows[0].kind, "changed");
+        assert_eq!(rows[0].left, "wind 0 0");
+        assert_eq!(rows[0].right, "wind 1 0");
+        assert_eq!(rows[1].kind, "removed");
+        assert_eq!(rows[1].left, "land 2 0");
+        assert!(diff("a\nb", "a\nb").is_empty());
+        assert_eq!(diff("a", "a\nb")[0].kind, "added");
     }
 
     #[test]

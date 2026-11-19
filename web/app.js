@@ -1109,6 +1109,7 @@ function formatChartStats(stats) {
   );
 }
 
+// Tooling/test-only fallback; the preset diff panel uses Rust via /api/chart-diff.
 function diffCharts(leftText, rightText) {
   const lines = (text) => {
     const all = String(text || "").replace(/\r\n?/g, "\n").split("\n");
@@ -1140,6 +1141,33 @@ function diffCharts(leftText, rightText) {
     }
   }
   return { rows, ...counts };
+}
+
+function chartDiffRequestBody(left, right) {
+  return JSON.stringify({ left: String(left || ""), right: String(right || "") });
+}
+
+function parseChartDiffResponse(result) {
+  if (!result || !result.ok || !Array.isArray(result.rows)) {
+    throw new Error(result && result.error ? result.error : "Could not diff these charts.");
+  }
+  return result.rows
+    .filter((row) => row && typeof row.line === "number" && typeof row.kind === "string")
+    .map((row) => ({
+      line: row.line,
+      kind: row.kind,
+      left: String(row.left || ""),
+      right: String(row.right || ""),
+    }));
+}
+
+function chartDiffFromRows(rows) {
+  return {
+    rows,
+    changed: rows.filter((row) => row.kind === "changed").length,
+    added: rows.filter((row) => row.kind === "added").length,
+    removed: rows.filter((row) => row.kind === "removed").length,
+  };
 }
 
 function formatChartDiff(diff) {
@@ -1183,6 +1211,7 @@ function formatDiffForClipboard(diff, leftName, rightName) {
   );
 }
 
+// Tooling/test-only fallback; the diff panel now uses POST /api/chart-diff.
 function diffAgainstPreset(currentText, preset) {
   if (!preset || typeof preset.chart !== "string") {
     throw new Error("No saved preset to compare against.");
@@ -1554,6 +1583,9 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartForClipboard,
     diffCharts,
     formatChartDiff,
+    chartDiffRequestBody,
+    parseChartDiffResponse,
+    chartDiffFromRows,
     formatDiffForClipboard,
     diffAgainstPreset,
     calmChartText,
@@ -1976,7 +2008,16 @@ if (typeof document !== "undefined") {
     }
   }
 
-  function compareSavedPresets() {
+  async function fetchChartDiff(leftText, rightText) {
+    const response = await fetch("/api/chart-diff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: chartDiffRequestBody(leftText, rightText),
+    });
+    return chartDiffFromRows(parseChartDiffResponse(await response.json()));
+  }
+
+  async function compareSavedPresets() {
     const saved = storedPresets();
     const left = saved.find((item) => item.name === diffLeft.value);
     const right = saved.find((item) => item.name === diffRight.value);
@@ -1989,10 +2030,14 @@ if (typeof document !== "undefined") {
       setState("Select two different presets.", "bad");
       return;
     }
-    lastDiff = diffCharts(left.chart, right.chart);
-    lastDiffNames = [left.name, right.name];
-    diffOutput.textContent = formatChartDiff(lastDiff);
-    setState("Compared '" + left.name + "' with '" + right.name + "'.", "good");
+    try {
+      lastDiff = await fetchChartDiff(left.chart, right.chart);
+      lastDiffNames = [left.name, right.name];
+      diffOutput.textContent = formatChartDiff(lastDiff);
+      setState("Compared '" + left.name + "' with '" + right.name + "'.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   function saveNamedPreset() {
@@ -2130,13 +2175,17 @@ if (typeof document !== "undefined") {
     }
   }
 
-  function diffCurrentAgainstPreset() {
+  async function diffCurrentAgainstPreset() {
     const preset = storedPresets().find((item) => item.name === diffRight.value);
+    if (!preset) {
+      setState("Select a saved preset to compare against.", "bad");
+      return;
+    }
     try {
-      const result = diffAgainstPreset(chart.value, preset);
-      lastDiff = result.diff;
+      lastDiff = await fetchChartDiff(chart.value, preset.chart);
       lastDiffNames = ["Current chart", preset.name];
-      diffOutput.textContent = result.label + "\n" + formatChartDiff(result.diff);
+      diffOutput.textContent =
+        "Current chart -> " + preset.name + "\n" + formatChartDiff(lastDiff);
       setState("Compared the editor chart with '" + preset.name + "'.", "good");
     } catch (error) {
       setState(String(error.message), "bad");

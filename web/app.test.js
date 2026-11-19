@@ -101,6 +101,9 @@ const {
   formatChartForClipboard,
   diffCharts,
   formatChartDiff,
+  chartDiffRequestBody,
+  parseChartDiffResponse,
+  chartDiffFromRows,
   formatDiffForClipboard,
   diffAgainstPreset,
   validatePresetLibrary,
@@ -904,6 +907,30 @@ test("chart statistics summarize grid, land, currents and wind", () => {
   assert.throws(() => formatChartStats(null), /No chart statistics/);
 });
 
+test("chart diff API helpers turn Rust rows into the panel format", () => {
+  assert.equal(
+    chartDiffRequestBody("a\nb", "a\nc"),
+    JSON.stringify({ left: "a\nb", right: "a\nc" })
+  );
+  const rows = parseChartDiffResponse({
+    ok: true,
+    rows: [
+      { line: 2, kind: "changed", left: "b", right: "c" },
+      { line: 3, kind: "added", left: "", right: "d" },
+      { line: "x", kind: "removed", left: "z", right: "" },
+    ],
+  });
+  assert.equal(rows.length, 2);
+  const diff = chartDiffFromRows(rows);
+  assert.equal(diff.changed, 1);
+  assert.equal(diff.added, 1);
+  assert.equal(diff.removed, 0);
+  assert.match(formatChartDiff(diff), /2 - b/);
+  assert.throws(() => parseChartDiffResponse(null), /Could not diff/);
+  assert.throws(() => parseChartDiffResponse({ ok: false, error: "bad" }), /bad/);
+  assert.throws(() => parseChartDiffResponse({ ok: true }), /Could not diff/);
+});
+
 test("chart diff reports changed, added and removed lines", () => {
   const left = "TRIREME-CHART v1\r\ngrid 4 1\r\nwind 0 0";
   const right = "TRIREME-CHART v1\ngrid 4 1\nwind 1 0\nland 2 0\n";
@@ -1247,13 +1274,15 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /historyToCsv\(entries\)/);
   assert.match(source, /getElementById\("compare-presets"\)/);
   assert.match(source, /comparePresetsButton\.addEventListener\("click", compareSavedPresets\)/);
-  assert.match(source, /diffCharts\(left\.chart, right\.chart\)/);
+  assert.match(source, /fetch\("\/api\/chart-diff"/);
+  assert.match(source, /async function fetchChartDiff/);
+  assert.match(source, /await fetchChartDiff\(chart\.value, preset\.chart\)/);
   assert.match(source, /getElementById\("copy-diff"\)/);
   assert.match(source, /copyDiffButton\.addEventListener\("click", copyChartDiff\)/);
   assert.match(source, /formatDiffForClipboard\(lastDiff/);
   assert.match(source, /getElementById\("diff-current"\)/);
   assert.match(source, /diffCurrentButton\.addEventListener\("click", diffCurrentAgainstPreset\)/);
-  assert.match(source, /diffAgainstPreset\(chart\.value, preset\)/);
+  assert.match(source, /await fetchChartDiff\(chart\.value, preset\.chart\)/);
   assert.match(source, /getElementById\("validate-presets"\)/);
   assert.match(source, /validatePresetsButton\.addEventListener\("click", validateSavedPresets\)/);
   assert.match(source, /formatPresetValidation\(report\)/);

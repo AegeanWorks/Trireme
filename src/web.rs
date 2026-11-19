@@ -75,6 +75,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/normalize") => api_normalize(&request.body),
         ("POST", "/api/compare") => api_compare(&request.body),
         ("POST", "/api/fingerprint") => api_fingerprint(&request.body),
+        ("POST", "/api/chart-diff") => api_chart_diff(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -211,6 +212,45 @@ pub fn api_calm(body: &str) -> String {
         ),
         Err(err) => response(400, "application/json", &error_json(&err)),
     }
+}
+
+/// Returns a line-by-line diff of two charts from the Rust core.
+pub fn api_chart_diff(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let field = |name: &str| {
+        parsed
+            .get(name)
+            .ok_or_else(|| format!("missing field '{name}'"))
+            .and_then(|value| json::string_value(value))
+    };
+    let left = match field("left") {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let right = match field("right") {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let rows: Vec<String> = chart::diff(&left, &right)
+        .iter()
+        .map(|row| {
+            format!(
+                "{{\"line\":{},\"kind\":{},\"left\":{},\"right\":{}}}",
+                row.line,
+                json::quote(row.kind),
+                json::quote(&row.left),
+                json::quote(&row.right)
+            )
+        })
+        .collect();
+    response(
+        200,
+        "application/json",
+        &format!("{{\"ok\":true,\"rows\":[{}]}}", rows.join(",")),
+    )
 }
 
 /// Returns the stable fingerprint of a chart from the Rust core.
@@ -507,6 +547,18 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn chart_diff_endpoint_returns_rust_rows() {
+        let body = "{\"left\":\"a\\nb\",\"right\":\"a\\nc\\nd\"}";
+        let out = api_chart_diff(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("\"line\":2"));
+        assert!(out.contains("\"kind\":\"changed\""));
+        assert!(out.contains("\"kind\":\"added\""));
+        assert!(api_chart_diff("{}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]
