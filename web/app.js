@@ -25,6 +25,7 @@ const HELP_SECTIONS = {
     ["Delete preset", "Remove the selected saved preset"],
     ["Rename preset", "Rename the selected saved preset"],
     ["Duplicate preset", "Copy the selected saved preset under a new name"],
+    ["Filter presets", "Search saved presets by name, chart or endpoints"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -537,6 +538,25 @@ function historyFilterSummary(shown, total) {
   return "Showing " + shown + " of " + total + " entries";
 }
 
+function filterLocalPresets(presets, query) {
+  const source = Array.isArray(presets) ? presets : [];
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) {
+    return source.slice();
+  }
+  return source.filter((item) =>
+    [item.name, item.chart, item.from, item.to]
+      .map((value) => String(value || ""))
+      .join(" ")
+      .toLowerCase()
+      .includes(needle)
+  );
+}
+
+function presetFilterSummary(shown, total) {
+  return "Showing " + shown + " of " + total + " presets";
+}
+
 function sortHistory(entries, mode) {
   const source = Array.isArray(entries) ? entries.slice() : [];
   const key = (entry) => JSON.stringify([entry.at, entry.from, entry.to, entry.time]);
@@ -853,6 +873,8 @@ if (typeof module !== "undefined" && module.exports) {
     filterHistory,
     historyFilterSummary,
     sortHistory,
+    filterLocalPresets,
+    presetFilterSummary,
     HELP_SECTIONS,
     formatHelpText,
     LOCAL_PRESETS_KEY,
@@ -913,6 +935,8 @@ if (typeof document !== "undefined") {
   const presetName = document.getElementById("preset-name");
   const savePresetButton = document.getElementById("save-preset");
   const localPreset = document.getElementById("local-preset");
+  const presetFilter = document.getElementById("preset-filter");
+  const presetFilterStatus = document.getElementById("preset-filter-status");
   const presetsFile = document.getElementById("presets-file");
   const exportPresetsButton = document.getElementById("export-presets");
   const importPresetsButton = document.getElementById("import-presets");
@@ -1093,16 +1117,25 @@ if (typeof document !== "undefined") {
 
   function renderLocalPresets() {
     const saved = storedPresets();
+    const visible = filterLocalPresets(saved, presetFilter.value);
+    presetFilterStatus.textContent = presetFilterSummary(visible.length, saved.length);
     localPreset.replaceChildren();
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = saved.length ? "Load a saved preset…" : "No saved presets";
+    placeholder.textContent = visible.length
+      ? "Load a saved preset…"
+      : saved.length
+        ? "No presets match the filter"
+        : "No saved presets";
     localPreset.appendChild(placeholder);
-    for (const item of saved) {
+    for (const item of visible) {
       const option = document.createElement("option");
       option.value = item.name;
       option.textContent = item.name;
       localPreset.appendChild(option);
+    }
+    if (visible.length && !visible.some((item) => item.name === localPreset.value)) {
+      localPreset.value = "";
     }
   }
 
@@ -1613,6 +1646,7 @@ if (typeof document !== "undefined") {
   });
   renderHistory();
   renderLocalPresets();
+  presetFilter.addEventListener("input", renderLocalPresets);
   savePresetButton.addEventListener("click", saveNamedPreset);
   localPreset.addEventListener("change", applyLocalPreset);
   exportPresetsButton.addEventListener("click", exportPresets);

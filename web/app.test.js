@@ -64,6 +64,8 @@ const {
   defaultEditorState,
   renameLocalPreset,
   duplicateLocalPreset,
+  filterLocalPresets,
+  presetFilterSummary,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -93,7 +95,8 @@ test("the page declares every control the script binds", () => {
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
-    "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
+    "local-preset", "preset-filter", "preset-filter-status",
+    "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
     "file", "plan", "clear-editor", "compare", "save",
@@ -715,6 +718,22 @@ test("duplicating a preset copies its content under a new name", () => {
   assert.match(formatHelpText(), /Duplicate preset/);
 });
 
+test("saved presets filter by name, chart and endpoints", () => {
+  const alpha = buildLocalPreset("alpha", "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n", "0,0", "3,0");
+  const beta = buildLocalPreset("beta", "TRIREME-CHART v1\ngrid 6 3\nwind 1 0\nland 2 2\n", "0,2", "5,0");
+  const original = [alpha, beta];
+  assert.deepEqual(filterLocalPresets(original, ""), original);
+  assert.deepEqual(filterLocalPresets(original, "BETA").map((p) => p.name), ["beta"]);
+  assert.deepEqual(filterLocalPresets(original, "land 2 2").map((p) => p.name), ["beta"]);
+  assert.deepEqual(filterLocalPresets(original, "5,0").map((p) => p.name), ["beta"]);
+  assert.deepEqual(filterLocalPresets(original, "wind 0 0").map((p) => p.name), ["alpha"]);
+  assert.deepEqual(filterLocalPresets(original, "nothing"), []);
+  assert.deepEqual(filterLocalPresets(null, "x"), []);
+  assert.deepEqual(original.map((p) => p.name), ["alpha", "beta"]);
+  assert.equal(presetFilterSummary(1, 2), "Showing 1 of 2 presets");
+  assert.match(formatHelpText(), /Filter presets/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -758,6 +777,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /const duplicatePresetButton = document\.getElementById\("duplicate-preset"\)/);
   assert.match(source, /duplicatePresetButton\.addEventListener\("click", duplicateSelectedPreset\)/);
   assert.match(source, /duplicateLocalPreset\(storedPresets\(\), from, to\)/);
+  assert.match(source, /presetFilter\.addEventListener\("input", renderLocalPresets\)/);
+  assert.match(source, /filterLocalPresets\(saved, presetFilter\.value\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
