@@ -28,6 +28,8 @@ const HELP_SECTIONS = {
     ["Filter presets", "Search saved presets by name, chart or endpoints"],
     ["Sort presets", "Order saved presets by name or chart size"],
     ["Compare presets", "Show a line-by-line diff of two saved charts"],
+    ["Validate presets", "Check every saved chart and endpoint"],
+
     ["Copy diff", "Copy that chart diff to the clipboard"],
     ["Diff current", "Compare the editor chart with the right-hand preset"],
     ["Export route (JSON/CSV)", "Download the last route"],
@@ -1052,6 +1054,36 @@ function diffAgainstPreset(currentText, preset) {
   };
 }
 
+function validatePresetLibrary(presets) {
+  const list = Array.isArray(presets) ? presets : [];
+  const invalid = [];
+  for (const item of list) {
+    try {
+      normalizePresetName(item && item.name);
+      validateChartText(item && item.chart);
+      point(item && item.from);
+      point(item && item.to);
+    } catch (error) {
+      invalid.push({
+        name: item && item.name ? String(item.name) : "(unnamed)",
+        reason: error.message,
+      });
+    }
+  }
+  return { total: list.length, valid: list.length - invalid.length, invalid };
+}
+
+function formatPresetValidation(report) {
+  if (!report || typeof report.total !== "number") {
+    throw new Error("No preset validation report to format.");
+  }
+  const lines = ["Presets: " + report.valid + " valid of " + report.total];
+  for (const item of report.invalid) {
+    lines.push("- " + item.name + ": " + item.reason);
+  }
+  return lines.join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1100,6 +1132,8 @@ if (typeof module !== "undefined" && module.exports) {
     removeLocalPreset,
     renameLocalPreset,
     duplicateLocalPreset,
+    validatePresetLibrary,
+    formatPresetValidation,
     PRESETS,
     point,
     applyPreset,
@@ -1149,6 +1183,8 @@ if (typeof document !== "undefined") {
   const comparePresetsButton = document.getElementById("compare-presets");
   const copyDiffButton = document.getElementById("copy-diff");
   const diffCurrentButton = document.getElementById("diff-current");
+  const validatePresetsButton = document.getElementById("validate-presets");
+  const presetValidationOutput = document.getElementById("preset-validation");
   const presetFilterStatus = document.getElementById("preset-filter-status");
   const presetsFile = document.getElementById("presets-file");
   const exportPresetsButton = document.getElementById("export-presets");
@@ -1529,6 +1565,17 @@ if (typeof document !== "undefined") {
     } catch (error) {
       setState(String(error.message), "bad");
     }
+  }
+
+  function validateSavedPresets() {
+    const report = validatePresetLibrary(storedPresets());
+    presetValidationOutput.textContent = formatPresetValidation(report);
+    setState(
+      report.invalid.length
+        ? "Found " + report.invalid.length + " invalid saved preset(s)."
+        : "All " + report.total + " saved presets are valid.",
+      report.invalid.length ? "bad" : "good"
+    );
   }
 
   async function copyChartDiff() {
@@ -1984,6 +2031,7 @@ if (typeof document !== "undefined") {
   comparePresetsButton.addEventListener("click", compareSavedPresets);
   copyDiffButton.addEventListener("click", copyChartDiff);
   diffCurrentButton.addEventListener("click", diffCurrentAgainstPreset);
+  validatePresetsButton.addEventListener("click", validateSavedPresets);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();

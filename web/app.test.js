@@ -75,6 +75,8 @@ const {
   formatChartDiff,
   formatDiffForClipboard,
   diffAgainstPreset,
+  validatePresetLibrary,
+  formatPresetValidation,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -109,7 +111,7 @@ test("the page declares every control the script binds", () => {
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
     "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-current",
-    "diff-output",
+    "validate-presets", "preset-validation", "diff-output",
     "file", "plan", "clear-editor", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
@@ -841,6 +843,22 @@ test("current chart diffs against a saved preset with a clear label", () => {
   assert.match(formatHelpText(), /Diff current/);
 });
 
+test("preset validation reports valid and broken saved charts", () => {
+  const good = buildLocalPreset("good", "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n", "0,0", "3,0");
+  const broken = { name: "bad/name", chart: "grid 2 2\nwind 0 0\n", from: "0,0", to: "1,1" };
+  const report = validatePresetLibrary([good, broken]);
+  assert.equal(report.total, 2);
+  assert.equal(report.valid, 1);
+  assert.equal(report.invalid.length, 1);
+  assert.equal(report.invalid[0].name, "bad/name");
+  assert.equal(formatPresetValidation(report),
+    "Presets: 1 valid of 2\n- bad/name: Preset name must be 1-32 letters, digits, spaces, '-' or '_'.");
+  assert.equal(formatPresetValidation(validatePresetLibrary([good])), "Presets: 1 valid of 1");
+  assert.equal(formatPresetValidation(validatePresetLibrary(null)), "Presets: 0 valid of 0");
+  assert.throws(() => formatPresetValidation(null), /No preset validation report/);
+  assert.match(formatHelpText(), /Validate presets/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -899,6 +917,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("diff-current"\)/);
   assert.match(source, /diffCurrentButton\.addEventListener\("click", diffCurrentAgainstPreset\)/);
   assert.match(source, /diffAgainstPreset\(chart\.value, preset\)/);
+  assert.match(source, /getElementById\("validate-presets"\)/);
+  assert.match(source, /validatePresetsButton\.addEventListener\("click", validateSavedPresets\)/);
+  assert.match(source, /formatPresetValidation\(report\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
