@@ -31,6 +31,8 @@ const {
   historyJsonFilename,
   parseHistoryExport,
   mergeHistory,
+  comparisonToCsv,
+  comparisonCsvFilename,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -60,6 +62,7 @@ test("the page declares every control the script binds", () => {
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
+    "export-compare-csv",
     "history-title", "clear-history", "export-history", "import-history",
     "history-file", "history-list",
   ]) {
@@ -310,6 +313,27 @@ test("restore reloads the stored chart and endpoints", () => {
   assert.deepEqual(restoreEntry(roundTrip[0]), restored);
 });
 
+test("comparison CSV has one row per scenario and a signed saving", () => {
+  const comparison = {
+    query: { from: [0, 2], to: [7, 0], chart: "x" },
+    withWind: { time: 647, steps: ["E", "NE"], explored: 26 },
+    still: { time: 780, steps: ["SE", "SE"], explored: 30 },
+  };
+  assert.equal(
+    comparisonToCsv(comparison),
+    "scenario,from,to,time,saved_vs_calm,steps,explored,headings\n" +
+      "wind,\"0,2\",\"7,0\",647,133,2,26,E NE\n" +
+      "calm,\"0,2\",\"7,0\",780,0,2,30,SE SE\n"
+  );
+  const slower = comparisonToCsv({
+    withWind: { time: 900, steps: [], explored: 1 },
+    still: { time: 600, steps: [], explored: 1 },
+  });
+  assert.match(slower, /wind,,,900,-300,0,1,/);
+  assert.throws(() => comparisonToCsv(null), /No comparison/);
+  assert.equal(comparisonCsvFilename(), "trireme-comparison.csv");
+});
+
 test("history JSON export keeps charts, endpoints and a stable schema", () => {
   const chartText = "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\n";
   const entry = historyEntry(
@@ -391,6 +415,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("import-history"\)\.addEventListener/);
   assert.match(source, /historyFile\.addEventListener\("change", importHistory\)/);
   assert.match(source, /parseHistoryExport\(await picked\.text\(\)\)/);
+  assert.match(source, /getElementById\("export-compare-csv"\)\.addEventListener/);
+  assert.match(source, /lastComparison = \{ withWind, still, query \}/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

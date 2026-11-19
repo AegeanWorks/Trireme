@@ -223,6 +223,41 @@ function formatRouteSummary(route) {
   ].join("\n");
 }
 
+function comparisonToCsv(comparison) {
+  if (!comparison || !comparison.withWind || !comparison.still) {
+    throw new Error("No comparison to export.");
+  }
+  const wind = comparison.withWind;
+  const still = comparison.still;
+  const asText = (point) =>
+    Array.isArray(point) ? point.join(",") : String(point || "");
+  const source = comparison.query || wind;
+  const from = asText(source.from);
+  const to = asText(source.to);
+  const row = (name, route, saved) =>
+    [
+      name,
+      from,
+      to,
+      typeof route.time === "number" ? route.time : "",
+      saved,
+      Array.isArray(route.steps) ? route.steps.length : "",
+      typeof route.explored === "number" ? route.explored : "",
+      Array.isArray(route.steps) ? route.steps.join(" ") : "",
+    ]
+      .map(csvCell)
+      .join(",");
+  return [
+    "scenario,from,to,time,saved_vs_calm,steps,explored,headings",
+    row("wind", wind, still.time - wind.time),
+    row("calm", still, 0),
+  ].join("\n") + "\n";
+}
+
+function comparisonCsvFilename() {
+  return "trireme-comparison.csv";
+}
+
 const HISTORY_KEY = "trireme.history";
 const HISTORY_LIMIT = 10;
 
@@ -412,6 +447,8 @@ if (typeof module !== "undefined" && module.exports) {
     routeCsvFilename,
     formatStepTimes,
     formatRouteSummary,
+    comparisonToCsv,
+    comparisonCsvFilename,
   };
 }
 
@@ -439,6 +476,7 @@ if (typeof document !== "undefined") {
   const clearHistory = document.getElementById("clear-history");
   const historyFile = document.getElementById("history-file");
   let lastRoute = null;
+  let lastComparison = null;
   let chartName = "chart.txt";
 
   function setState(message, kind) {
@@ -562,6 +600,7 @@ if (typeof document !== "undefined") {
     map.textContent = "\u2014";
     comparePanel.hidden = true;
     lastRoute = null;
+    lastComparison = null;
   }
 
   function save() {
@@ -690,6 +729,24 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function exportComparisonCsv() {
+    if (lastComparison === null) {
+      setState("Run a comparison before exporting it.", "bad");
+      return;
+    }
+    const blob = new Blob([comparisonToCsv(lastComparison)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const name = comparisonCsvFilename();
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Comparison exported as " + name + ".", "good");
+  }
+
   async function ask(query) {
     const response = await fetch("/api/route", {
       method: "POST",
@@ -755,6 +812,7 @@ if (typeof document !== "undefined") {
       compareDelta.textContent =
         (saved > 0 ? "-" : saved < 0 ? "+" : "") + Math.abs(saved) + " units";
       lastRoute = withWind;
+      lastComparison = { withWind, still, query };
       remember(query, withWind, "calm water compared");
       show(withWind);
       setState("Compared the chart with calm water.", "good");
@@ -772,6 +830,7 @@ if (typeof document !== "undefined") {
   document.getElementById("export-csv").addEventListener("click", exportCsv);
   document.getElementById("copy-summary").addEventListener("click", copySummary);
   document.getElementById("compare").addEventListener("click", compare);
+  document.getElementById("export-compare-csv").addEventListener("click", exportComparisonCsv);
   clearHistory.addEventListener("click", () => {
     localStorage.removeItem(HISTORY_KEY);
     renderHistory();
