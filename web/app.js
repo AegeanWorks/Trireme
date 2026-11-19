@@ -24,6 +24,7 @@ const HELP_SECTIONS = {
     ["Swap endpoints", "Exchange the from and to coordinates"],
     ["Copy chart", "Copy the chart text with its endpoints noted"],
     ["Copy stats", "Copy grid, land, current and wind counts"],
+    ["Copy issues", "Copy the chart validation report"],
     ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
@@ -202,6 +203,20 @@ function parseIssuesResponse(result) {
   return result.issues
     .filter((issue) => issue && typeof issue.line === "number" && typeof issue.message === "string")
     .map((issue) => ({ line: issue.line, message: issue.message }));
+}
+
+function formatIssuesForClipboard(issues) {
+  if (!Array.isArray(issues)) {
+    throw new Error("No chart issues to copy.");
+  }
+  const lines = issues.map((issue) =>
+    (issue.line ? "line " + issue.line : "chart") + ": " + issue.message
+  );
+  return (
+    "Trireme chart issues\n" +
+    (lines.length ? lines.join("\n") : "No issues found.") +
+    "\n"
+  );
 }
 
 function formatChartIssues(issues) {
@@ -1465,6 +1480,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartIssues,
     issuesRequestBody,
     parseIssuesResponse,
+    formatIssuesForClipboard,
     chartStats,
     formatChartStats,
     statsRequestBody,
@@ -1537,6 +1553,7 @@ if (typeof document !== "undefined") {
   const copyMapButton = document.getElementById("copy-map");
   const copyMarkdownButton = document.getElementById("copy-markdown");
   const issuesPanel = document.getElementById("chart-issues");
+  const copyIssuesButton = document.getElementById("copy-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
   const copyPresetStatsButton = document.getElementById("copy-preset-stats");
@@ -1591,11 +1608,13 @@ if (typeof document !== "undefined") {
       });
       const issues = parseIssuesResponse(await response.json());
       if (request === issuesRequest) {
+        lastIssues = issues;
         issuesPanel.hidden = issues.length === 0;
         issuesPanel.textContent = formatChartIssues(issues);
       }
     } catch (error) {
       if (request === issuesRequest) {
+        lastIssues = [];
         issuesPanel.hidden = false;
         issuesPanel.textContent = "Chart validation unavailable.";
       }
@@ -1641,6 +1660,25 @@ if (typeof document !== "undefined") {
       setState("Chart copied to the clipboard.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
+    }
+  }
+
+  async function copyChartIssues() {
+    const text = formatIssuesForClipboard(lastIssues);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Chart issues copied to the clipboard.", "good");
+    } catch (error) {
+      setState("Clipboard unavailable: " + error, "bad");
     }
   }
 
@@ -1962,6 +2000,7 @@ if (typeof document !== "undefined") {
 
   let statsRequest = 0;
   let issuesRequest = 0;
+  let lastIssues = [];
 
   async function renderStats() {
     const request = ++statsRequest;
@@ -2594,6 +2633,7 @@ if (typeof document !== "undefined") {
   swapEndpointsButton.addEventListener("click", swapEditorEndpoints);
   copyChartButton.addEventListener("click", copyCurrentChart);
   copyStatsButton.addEventListener("click", copyChartStats);
+  copyIssuesButton.addEventListener("click", copyChartIssues);
   copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);

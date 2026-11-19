@@ -89,6 +89,7 @@ const {
   parseStatsResponse,
   issuesRequestBody,
   parseIssuesResponse,
+  formatIssuesForClipboard,
   formatPresetStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
@@ -125,7 +126,8 @@ test("the page declares every control the script binds", () => {
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
-    "chart", "chart-stats", "copy-stats", "chart-issues", "copy-preset-stats", "from", "to",
+    "chart", "chart-stats", "copy-stats", "chart-issues", "copy-issues",
+    "copy-preset-stats", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -178,6 +180,20 @@ test("issues API helpers accept only structured line-numbered problems", () => {
   assert.throws(() => parseIssuesResponse(null), /Could not validate/);
   assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
   assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
+});
+
+test("clipboard issues report labels lines and handles the clean case", () => {
+  const issues = [
+    { line: 3, message: "bad wind" },
+    { line: 0, message: "missing grid" },
+  ];
+  assert.equal(
+    formatIssuesForClipboard(issues),
+    "Trireme chart issues\nline 3: bad wind\nchart: missing grid\n"
+  );
+  assert.equal(formatIssuesForClipboard([]), "Trireme chart issues\nNo issues found.\n");
+  assert.throws(() => formatIssuesForClipboard(null), /No chart issues/);
+  assert.match(formatHelpText(), /Copy issues/);
 });
 
 test("chart issues name the offending line numbers", () => {
@@ -1231,6 +1247,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /fetch\("\/api\/issues"/);
   assert.match(source, /parseIssuesResponse\(await response\.json\(\)\)/);
   assert.match(source, /issuesRequest/);
+  assert.match(source, /getElementById\("copy-issues"\)/);
+  assert.match(source, /copyIssuesButton\.addEventListener\("click", copyChartIssues\)/);
+  assert.match(source, /formatIssuesForClipboard\(lastIssues\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
