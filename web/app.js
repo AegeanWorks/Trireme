@@ -30,6 +30,7 @@ const HELP_SECTIONS = {
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
+    ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Filter / Sort history", "Search and order saved plans"],
     ["Reset local data", "Click twice to clear chart, presets and history"],
     ["Copy all data", "Copy a versioned JSON bundle to the clipboard"],
@@ -873,6 +874,43 @@ function duplicateLocalPreset(presets, name, newName) {
   );
 }
 
+function historyToCsv(entries) {
+  if (!Array.isArray(entries)) {
+    throw new Error("No route history to export as CSV.");
+  }
+  const asText = (point) =>
+    Array.isArray(point) ? point.join(",") : String(point || "");
+  const lines = ["at,from,to,time,steps,heading,note,chart"];
+  for (const entry of entries) {
+    if (!entry || typeof entry.at !== "number") {
+      continue;
+    }
+    lines.push(
+      [
+        entry.at,
+        asText(entry.from),
+        asText(entry.to),
+        typeof entry.time === "number" ? entry.time : "",
+        typeof entry.steps === "number"
+          ? entry.steps
+          : Array.isArray(entry.steps)
+            ? entry.steps.length
+            : "",
+        String(entry.heading || ""),
+        String(entry.note || ""),
+        typeof entry.chart === "string" ? entry.chart : "",
+      ]
+        .map(csvCell)
+        .join(",")
+    );
+  }
+  return lines.join("\n") + "\n";
+}
+
+function historyCsvFilename() {
+  return HISTORY_KEY + ".csv";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -884,6 +922,8 @@ if (typeof module !== "undefined" && module.exports) {
     restoreEntry,
     historyToJson,
     historyJsonFilename,
+    historyToCsv,
+    historyCsvFilename,
     parseHistoryExport,
     mergeHistory,
     historyImportSummary,
@@ -1353,6 +1393,27 @@ if (typeof document !== "undefined") {
     setState("History exported as " + name + " (" + entries.length + " entries).", "good");
   }
 
+  function exportHistoryCsv() {
+    const entries = sortHistory(
+      filterHistory(
+        parseHistory(localStorage.getItem(HISTORY_KEY)),
+        historyFilter.value
+      ),
+      historySort.value
+    );
+    const blob = new Blob([historyToCsv(entries)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const name = historyCsvFilename();
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Exported " + entries.length + " plans as " + name + ".", "good");
+  }
+
   async function importHistory() {
     const picked = historyFile.files && historyFile.files[0];
     if (!picked) {
@@ -1657,6 +1718,7 @@ if (typeof document !== "undefined") {
     setState("Route history cleared.", "good");
   });
   document.getElementById("export-history").addEventListener("click", exportHistory);
+  document.getElementById("export-history-csv").addEventListener("click", exportHistoryCsv);
   document.getElementById("import-history").addEventListener("click", () => historyFile.click());
   historyFile.addEventListener("change", importHistory);
   applyImport.addEventListener("click", applyPendingImport);

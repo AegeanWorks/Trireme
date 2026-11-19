@@ -67,6 +67,8 @@ const {
   filterLocalPresets,
   presetFilterSummary,
   sortLocalPresets,
+  historyToCsv,
+  historyCsvFilename,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -105,7 +107,7 @@ test("the page declares every control the script binds", () => {
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
-    "history-title", "clear-history", "export-history", "import-history",
+    "history-title", "clear-history", "export-history-csv", "export-history", "import-history",
     "history-file", "history-list", "history-filter", "history-sort",
     "history-filter-status",
     "import-preview", "import-preview-text",
@@ -751,6 +753,21 @@ test("saved presets sort by name or chart size without mutating", () => {
   assert.match(formatHelpText(), /Sort presets/);
 });
 
+test("history CSV carries chart, endpoints, time and note with escaping", () => {
+  const chartText = "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n";
+  const entry = historyEntry({ time: 300, steps: ["E"] }, { chart: chartText, from: [0, 0], to: [3, 0] }, 7, "quick, run");
+  const csv = historyToCsv([entry, null]);
+  assert.match(csv, /^at,from,to,time,steps,heading,note,chart\n/);
+  assert.match(csv, /"0,0","3,0",300,1,E,"quick, run"/);
+  assert.match(csv, /"TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n"/);
+  assert.equal(historyToCsv([]), "at,from,to,time,steps,heading,note,chart\n");
+  assert.equal(historyCsvFilename(), "trireme.history.csv");
+  assert.throws(() => historyToCsv(null), /No route history/);
+  const parsed = JSON.parse(historyToJson([entry]));
+  assert.equal(historyToCsv(parsed.entries), csv);
+  assert.match(formatHelpText(), /Export history CSV/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -798,6 +815,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /filterLocalPresets\(saved, presetFilter\.value\)/);
   assert.match(source, /presetSort\.addEventListener\("change", renderLocalPresets\)/);
   assert.match(source, /sortLocalPresets\(/);
+  assert.match(source, /getElementById\("export-history-csv"\)\.addEventListener\("click", exportHistoryCsv\)/);
+  assert.match(source, /historyToCsv\(entries\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
