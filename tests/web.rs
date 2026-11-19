@@ -47,6 +47,22 @@ fn server_serves_the_page_and_answers_a_route() {
 }
 
 #[test]
+fn server_inspects_charts_over_http() {
+    let address = spawn_server();
+    let body = br#"{"chart":"TRIREME-CHART v1\ngrid 3 2\nwind 0 0\nland 1 1\n"}"#;
+    let request = format!(
+        "POST /api/inspect HTTP/1.1\r\nHost: test\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        String::from_utf8_lossy(body)
+    );
+    let answer = ask(address, request.as_bytes());
+    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n"), "{answer}");
+    assert!(answer.contains("\"valid\":true"));
+    assert!(answer.contains("\"cells\":6"));
+    assert!(answer.contains("\"fingerprint\":\""));
+}
+
+#[test]
 fn server_returns_diff_summaries_over_http() {
     let address = spawn_server();
     let body = br#"{"left":"a\nb","right":"a\nc\nd"}"#;

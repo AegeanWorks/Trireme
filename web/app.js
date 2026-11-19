@@ -28,6 +28,7 @@ const HELP_SECTIONS = {
     ["Copy issues", "Copy the chart validation report"],
     ["Canonicalize", "Replace the chart with its Rust-normalized form"],
     ["Copy fingerprint", "Copy the stable ID of the current chart"],
+    ["Inspect chart", "Show Rust stats, fingerprint and issues together"],
     ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
@@ -192,6 +193,47 @@ function chartIssues(text) {
     }
   }
   return issues;
+}
+
+function inspectRequestBody(text) {
+  return JSON.stringify({ chart: String(text || "") });
+}
+
+function parseInspectResponse(result) {
+  if (!result || !result.ok || typeof result.valid !== "boolean") {
+    throw new Error(result && result.error ? result.error : "Could not inspect the chart.");
+  }
+  const issues = Array.isArray(result.issues)
+    ? result.issues.filter((issue) => issue && typeof issue.line === "number" && typeof issue.message === "string")
+    : [];
+  return {
+    valid: result.valid,
+    fingerprint: typeof result.fingerprint === "string" ? result.fingerprint : "",
+    stats: {
+      width: result.width || 0,
+      height: result.height || 0,
+      cells: result.cells || 0,
+      land: result.land || 0,
+      currents: result.currents || 0,
+      wind: Array.isArray(result.wind) ? result.wind : [0, 0],
+    },
+    issues,
+  };
+}
+
+function formatInspectForClipboard(inspect) {
+  if (!inspect || typeof inspect.valid !== "boolean") {
+    throw new Error("No chart inspection to copy.");
+  }
+  if (!inspect.valid) {
+    return "Trireme chart inspection\ninvalid chart\n" +
+      inspect.issues.map((issue) => "line " + issue.line + ": " + issue.message).join("\n") + "\n";
+  }
+  const s = inspect.stats;
+  return "Trireme chart inspection\n" +
+    s.width + "x" + s.height + " grid \u00b7 " + s.cells + " cells \u00b7 " +
+    s.land + " land \u00b7 " + s.currents + " currents \u00b7 wind (" + s.wind.join(",") + ")\n" +
+    "fingerprint " + inspect.fingerprint + "\n";
 }
 
 function fingerprintRequestBody(text) {
@@ -1622,6 +1664,9 @@ if (typeof module !== "undefined" && module.exports) {
     parseNormalizeResponse,
     fingerprintRequestBody,
     parseFingerprintResponse,
+    inspectRequestBody,
+    parseInspectResponse,
+    formatInspectForClipboard,
     formatFingerprintForClipboard,
     formatIssuesForClipboard,
     chartStats,
@@ -1710,6 +1755,8 @@ if (typeof document !== "undefined") {
   const copyIssuesButton = document.getElementById("copy-issues");
   const canonicalizeButton = document.getElementById("canonicalize");
   const copyFingerprintButton = document.getElementById("copy-fingerprint");
+  const inspectButton = document.getElementById("inspect-chart");
+  const inspectOutput = document.getElementById("inspect-output");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
   const copyPresetStatsButton = document.getElementById("copy-preset-stats");
@@ -1814,6 +1861,24 @@ if (typeof document !== "undefined") {
         area.remove();
       }
       setState("Chart copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  async function inspectCurrentChart() {
+    try {
+      const response = await fetch("/api/inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: inspectRequestBody(chart.value),
+      });
+      const result = parseInspectResponse(await response.json());
+      inspectOutput.textContent = formatInspectForClipboard(result);
+      setState(
+        result.valid ? "Chart inspected." : "Chart has validation issues.",
+        result.valid ? "good" : "bad"
+      );
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -2890,6 +2955,7 @@ if (typeof document !== "undefined") {
   copyIssuesButton.addEventListener("click", copyChartIssues);
   canonicalizeButton.addEventListener("click", canonicalizeChart);
   copyFingerprintButton.addEventListener("click", copyChartFingerprint);
+  inspectButton.addEventListener("click", inspectCurrentChart);
   copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);

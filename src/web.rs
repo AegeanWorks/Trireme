@@ -77,6 +77,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/fingerprint") => api_fingerprint(&request.body),
         ("POST", "/api/chart-diff") => api_chart_diff(&request.body),
         ("POST", "/api/diff-summary") => api_diff_summary(&request.body),
+        ("POST", "/api/inspect") => api_inspect(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -213,6 +214,64 @@ pub fn api_calm(body: &str) -> String {
         ),
         Err(err) => response(400, "application/json", &error_json(&err)),
     }
+}
+
+/// Returns stats, fingerprint and validation issues in one document.
+pub fn api_inspect(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let found = chart::issues(&raw);
+    if !found.is_empty() {
+        let items: Vec<String> = found
+            .iter()
+            .map(|issue| {
+                format!(
+                    "{{\"line\":{},\"message\":{}}}",
+                    issue.line,
+                    json::quote(&issue.message)
+                )
+            })
+            .collect();
+        return response(
+            200,
+            "application/json",
+            &format!("{{\"ok\":true,\"valid\":false,\"issues\":[{}]}}", items.join(",")),
+        );
+    }
+    let stats = chart::parse(&raw).map(|sea| sea.stats());
+    let stats = match stats {
+        Ok(stats) => stats,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let value = match chart::fingerprint(&raw) {
+        Ok(value) => value,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    response(
+        200,
+        "application/json",
+        &format!(
+            "{{\"ok\":true,\"valid\":true,\"fingerprint\":{},\"width\":{},\"height\":{},\"cells\":{},\"land\":{},\"currents\":{},\"wind\":[{},{}]}}",
+            json::quote(&value),
+            stats.width,
+            stats.height,
+            stats.cells,
+            stats.land,
+            stats.currents,
+            stats.wind.dx,
+            stats.wind.dy
+        ),
+    )
 }
 
 /// Returns counts-only summary of two charts from the Rust core.
@@ -579,6 +638,21 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn inspect_endpoint_combines_stats_fingerprint_and_issues() {
+        let good = "{\"chart\":\"TRIREME-CHART v1\\ngrid 4 3\\nwind 1 0\\nland 2 2\\n\"}";
+        let out = api_inspect(good);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"valid\":true"));
+        assert!(out.contains("\"cells\":12"));
+        assert!(out.contains("\"fingerprint\":\""));
+        let bad = "{\"chart\":\"TRIREME-CHART v1\\nwind 2 0\\n\"}";
+        let bad_out = api_inspect(bad);
+        assert!(bad_out.contains("\"valid\":false"), "{bad_out}");
+        assert!(bad_out.contains("\"issues\":[{"));
+        assert!(api_inspect("{}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]

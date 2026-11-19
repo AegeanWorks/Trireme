@@ -94,6 +94,9 @@ const {
   parseNormalizeResponse,
   fingerprintRequestBody,
   parseFingerprintResponse,
+  inspectRequestBody,
+  parseInspectResponse,
+  formatInspectForClipboard,
   formatFingerprintForClipboard,
   compareRequestBody,
   parseCompareResponse,
@@ -141,7 +144,8 @@ test("the page declares every control the script binds", () => {
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-stats", "copy-stats", "chart-issues", "copy-issues",
-    "copy-preset-stats", "canonicalize", "copy-fingerprint", "from", "to",
+    "copy-preset-stats", "canonicalize", "copy-fingerprint",
+    "inspect-chart", "inspect-output", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -195,6 +199,37 @@ test("issues API helpers accept only structured line-numbered problems", () => {
   assert.throws(() => parseIssuesResponse(null), /Could not validate/);
   assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
   assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
+});
+
+test("inspect helpers parse and format Rust chart details", () => {
+  const text = "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\n";
+  assert.equal(inspectRequestBody(text), JSON.stringify({ chart: text }));
+  const good = parseInspectResponse({
+    ok: true,
+    valid: true,
+    fingerprint: "abc123",
+    width: 4,
+    height: 3,
+    cells: 12,
+    land: 1,
+    currents: 2,
+    wind: [1, 0],
+  });
+  assert.equal(good.valid, true);
+  assert.equal(good.stats.cells, 12);
+  assert.match(formatInspectForClipboard(good), /4x3 grid/);
+  assert.match(formatInspectForClipboard(good), /fingerprint abc123/);
+  const bad = parseInspectResponse({
+    ok: true,
+    valid: false,
+    issues: [{ line: 2, message: "bad wind" }],
+  });
+  assert.match(formatInspectForClipboard(bad), /invalid chart/);
+  assert.match(formatInspectForClipboard(bad), /line 2: bad wind/);
+  assert.throws(() => parseInspectResponse(null), /Could not inspect/);
+  assert.throws(() => parseInspectResponse({ ok: false, error: "bad" }), /bad/);
+  assert.throws(() => formatInspectForClipboard(null), /No chart inspection/);
+  assert.match(formatHelpText(), /Inspect chart/);
 });
 
 test("fingerprint helpers validate the response and label the clipboard text", () => {
@@ -1377,6 +1412,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-fingerprint"\)/);
   assert.match(source, /fetch\("\/api\/fingerprint"/);
   assert.match(source, /formatFingerprintForClipboard\(value\)/);
+  assert.match(source, /getElementById\("inspect-chart"\)/);
+  assert.match(source, /fetch\("\/api\/inspect"/);
+  assert.match(source, /formatInspectForClipboard\(result\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
