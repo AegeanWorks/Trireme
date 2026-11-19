@@ -72,6 +72,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/calm") => api_calm(&request.body),
         ("POST", "/api/stats") => api_stats(&request.body),
         ("POST", "/api/issues") => api_issues(&request.body),
+        ("POST", "/api/normalize") => api_normalize(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -91,6 +92,30 @@ fn serve_file(project_root: &Path, name: &str, content_type: &str) -> String {
             "text/plain; charset=utf-8",
             &format!("cannot read web/{name}: {err}"),
         ),
+    }
+}
+
+/// Returns the canonical form of a chart from the Rust core.
+pub fn api_normalize(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    match chart::normalize(&raw) {
+        Ok(canonical) => response(
+            200,
+            "application/json",
+            &format!("{{\"ok\":true,\"chart\":{}}}", json::quote(&canonical)),
+        ),
+        Err(err) => response(400, "application/json", &error_json(&err)),
     }
 }
 
@@ -394,6 +419,18 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn normalize_endpoint_returns_canonical_chart() {
+        let body = "{\"chart\":\"# note\\nTRIREME-CHART v1\\ncurrent 1 1 0 1\\ngrid 4 3\\nwind 1 0\\n\"}";
+        let out = api_normalize(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("grid 4 3\\nwind 1 0\\ncurrent 1 1 0 1"));
+        assert!(!out.contains("# note"));
+        assert!(api_normalize("{}").starts_with("HTTP/1.1 400"));
+        assert!(api_normalize("{\"chart\":\"grid 2 2\"}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]

@@ -25,6 +25,7 @@ const HELP_SECTIONS = {
     ["Copy chart", "Copy the chart text with its endpoints noted"],
     ["Copy stats", "Copy grid, land, current and wind counts"],
     ["Copy issues", "Copy the chart validation report"],
+    ["Canonicalize", "Replace the chart with its Rust-normalized form"],
     ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
@@ -188,6 +189,19 @@ function chartIssues(text) {
     }
   }
   return issues;
+}
+
+function normalizeRequestBody(text) {
+  return JSON.stringify({ chart: String(text || "") });
+}
+
+function parseNormalizeResponse(result) {
+  if (!result || !result.ok || typeof result.chart !== "string") {
+    throw new Error(
+      result && result.error ? result.error : "Could not normalize the chart."
+    );
+  }
+  return result.chart;
 }
 
 function issuesRequestBody(text) {
@@ -1480,6 +1494,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartIssues,
     issuesRequestBody,
     parseIssuesResponse,
+    normalizeRequestBody,
+    parseNormalizeResponse,
     formatIssuesForClipboard,
     chartStats,
     formatChartStats,
@@ -1554,6 +1570,7 @@ if (typeof document !== "undefined") {
   const copyMarkdownButton = document.getElementById("copy-markdown");
   const issuesPanel = document.getElementById("chart-issues");
   const copyIssuesButton = document.getElementById("copy-issues");
+  const canonicalizeButton = document.getElementById("canonicalize");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
   const copyPresetStatsButton = document.getElementById("copy-preset-stats");
@@ -1658,6 +1675,22 @@ if (typeof document !== "undefined") {
         area.remove();
       }
       setState("Chart copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  async function canonicalizeChart() {
+    try {
+      const response = await fetch("/api/normalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: normalizeRequestBody(chart.value),
+      });
+      const canonical = parseNormalizeResponse(await response.json());
+      chart.value = canonical;
+      renderIssues();
+      setState("Chart canonicalized from the Rust parser.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -2634,6 +2667,7 @@ if (typeof document !== "undefined") {
   copyChartButton.addEventListener("click", copyCurrentChart);
   copyStatsButton.addEventListener("click", copyChartStats);
   copyIssuesButton.addEventListener("click", copyChartIssues);
+  canonicalizeButton.addEventListener("click", canonicalizeChart);
   copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);

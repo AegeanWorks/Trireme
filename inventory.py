@@ -34,6 +34,7 @@ if __name__ == "__main__":
     print('button|copy-preset-stats|web/index.html#copy-preset-stats')
     print('output|chart-issues|web/index.html#chart-issues')
     print('button|copy-issues|web/index.html#copy-issues')
+    print('button|canonicalize|web/index.html#canonicalize')
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
     print('button|swap-endpoints|web/index.html#swap-endpoints')

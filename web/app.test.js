@@ -90,6 +90,8 @@ const {
   issuesRequestBody,
   parseIssuesResponse,
   formatIssuesForClipboard,
+  normalizeRequestBody,
+  parseNormalizeResponse,
   formatPresetStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
@@ -127,7 +129,7 @@ test("the page declares every control the script binds", () => {
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-stats", "copy-stats", "chart-issues", "copy-issues",
-    "copy-preset-stats", "from", "to",
+    "copy-preset-stats", "canonicalize", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -180,6 +182,16 @@ test("issues API helpers accept only structured line-numbered problems", () => {
   assert.throws(() => parseIssuesResponse(null), /Could not validate/);
   assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
   assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
+});
+
+test("normalize API helpers return the canonical chart strictly", () => {
+  const text = "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n";
+  assert.equal(normalizeRequestBody(text), JSON.stringify({ chart: text }));
+  assert.equal(parseNormalizeResponse({ ok: true, chart: text }), text);
+  assert.throws(() => parseNormalizeResponse(null), /Could not normalize/);
+  assert.throws(() => parseNormalizeResponse({ ok: false, error: "bad chart" }), /bad chart/);
+  assert.throws(() => parseNormalizeResponse({ ok: true }), /Could not normalize/);
+  assert.match(formatHelpText(), /Canonicalize/);
 });
 
 test("clipboard issues report labels lines and handles the clean case", () => {
@@ -1250,6 +1262,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-issues"\)/);
   assert.match(source, /copyIssuesButton\.addEventListener\("click", copyChartIssues\)/);
   assert.match(source, /formatIssuesForClipboard\(lastIssues\)/);
+  assert.match(source, /getElementById\("canonicalize"\)/);
+  assert.match(source, /fetch\("\/api\/normalize"/);
+  assert.match(source, /parseNormalizeResponse\(await response\.json\(\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
