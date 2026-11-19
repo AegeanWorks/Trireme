@@ -126,6 +126,7 @@ function chartFilename(name) {
   return cleaned.endsWith(".txt") ? cleaned : cleaned + ".txt";
 }
 
+// Tooling/test-only fallback; the browser reads Rust issues from /api/issues.
 function chartIssues(text) {
   const normalized = String(text).replace(/\r\n?/g, "\n");
   const issues = [];
@@ -186,6 +187,21 @@ function chartIssues(text) {
     }
   }
   return issues;
+}
+
+function issuesRequestBody(text) {
+  return JSON.stringify({ chart: String(text || "") });
+}
+
+function parseIssuesResponse(result) {
+  if (!result || !result.ok || !Array.isArray(result.issues)) {
+    throw new Error(
+      result && result.error ? result.error : "Could not validate the chart."
+    );
+  }
+  return result.issues
+    .filter((issue) => issue && typeof issue.line === "number" && typeof issue.message === "string")
+    .map((issue) => ({ line: issue.line, message: issue.message }));
 }
 
 function formatChartIssues(issues) {
@@ -1447,6 +1463,8 @@ if (typeof module !== "undefined" && module.exports) {
     validateChartText,
     chartIssues,
     formatChartIssues,
+    issuesRequestBody,
+    parseIssuesResponse,
     chartStats,
     formatChartStats,
     statsRequestBody,
@@ -1562,12 +1580,26 @@ if (typeof document !== "undefined") {
     status.className = "status " + kind;
   }
 
-  function renderIssues() {
+  async function renderIssues() {
     renderStats();
-    const issues = chartIssues(chart.value);
-    issuesPanel.hidden = issues.length === 0;
-    issuesPanel.textContent = formatChartIssues(issues);
-    return issues.length;
+    const request = ++issuesRequest;
+    try {
+      const response = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: issuesRequestBody(chart.value),
+      });
+      const issues = parseIssuesResponse(await response.json());
+      if (request === issuesRequest) {
+        issuesPanel.hidden = issues.length === 0;
+        issuesPanel.textContent = formatChartIssues(issues);
+      }
+    } catch (error) {
+      if (request === issuesRequest) {
+        issuesPanel.hidden = false;
+        issuesPanel.textContent = "Chart validation unavailable.";
+      }
+    }
   }
 
   function clearEditor() {
@@ -1929,6 +1961,7 @@ if (typeof document !== "undefined") {
   }
 
   let statsRequest = 0;
+  let issuesRequest = 0;
 
   async function renderStats() {
     const request = ++statsRequest;

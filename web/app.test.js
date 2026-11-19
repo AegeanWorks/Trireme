@@ -87,6 +87,8 @@ const {
   formatChartStatsForClipboard,
   statsRequestBody,
   parseStatsResponse,
+  issuesRequestBody,
+  parseIssuesResponse,
   formatPresetStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
@@ -162,6 +164,20 @@ test("chart filenames keep only a safe basename", () => {
   assert.equal(chartFilename("route"), "route.txt");
   assert.equal(chartFilename(""), "chart.txt");
   assert.equal(chartFilename("..hidden"), "hidden.txt");
+});
+
+test("issues API helpers accept only structured line-numbered problems", () => {
+  const text = "TRIREME-CHART v1\nwind 2 0\n";
+  assert.equal(issuesRequestBody(text), JSON.stringify({ chart: text }));
+  const issues = parseIssuesResponse({
+    ok: true,
+    issues: [{ line: 2, message: "bad wind" }, { line: "x", message: "skip" }],
+  });
+  assert.deepEqual(issues, [{ line: 2, message: "bad wind" }]);
+  assert.equal(formatChartIssues(issues), "line 2: bad wind");
+  assert.throws(() => parseIssuesResponse(null), /Could not validate/);
+  assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
+  assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
 });
 
 test("chart issues name the offending line numbers", () => {
@@ -1212,6 +1228,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /formatRouteAsMarkdown\(lastRoute\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /statsRequestBody\(chart\.value\)/);
+  assert.match(source, /fetch\("\/api\/issues"/);
+  assert.match(source, /parseIssuesResponse\(await response\.json\(\)\)/);
+  assert.match(source, /issuesRequest/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

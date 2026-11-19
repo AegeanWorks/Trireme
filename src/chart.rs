@@ -243,6 +243,120 @@ pub fn calm(text: &str) -> Result<String, String> {
     Ok(out.join("\n"))
 }
 
+/// One line-numbered problem found in a chart.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ChartIssue {
+    pub line: usize,
+    pub message: String,
+}
+
+fn in_range(value: &str, low: i32, high: i32) -> bool {
+    value
+        .parse::<i32>()
+        .is_ok_and(|number| number >= low && number <= high)
+}
+
+fn non_negative(value: &str) -> bool {
+    value.parse::<u32>().is_ok()
+}
+
+/// Reports every problem in a chart, not just the first one.
+pub fn issues(text: &str) -> Vec<ChartIssue> {
+    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+    let mut found: Vec<ChartIssue> = Vec::new();
+    let mut add = |line: usize, message: &str| {
+        found.push(ChartIssue {
+            line,
+            message: message.to_string(),
+        });
+    };
+    if normalized.chars().count() > 1_000_000 {
+        add(0, "Chart is too large; the browser limit is 1 MB.");
+    }
+
+    let meaningful: Vec<(usize, &str)> = normalized
+        .split('\n')
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                None
+            } else {
+                Some((index + 1, trimmed))
+            }
+        })
+        .collect();
+
+    if meaningful.first().is_none_or(|(_, line)| *line != HEADER) {
+        let line = meaningful.first().map(|(number, _)| *number).unwrap_or(1);
+        add(line, "Chart must start with 'TRIREME-CHART v1' after any comments.");
+    }
+
+    let mut seen_grid = false;
+    let mut seen_wind = false;
+    for (number, line) in &meaningful {
+        if *line == HEADER {
+            continue;
+        }
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        let valid = match parts.first().copied() {
+            Some("grid") => {
+                let good = parts.len() == 3 && non_negative(parts[1]) && non_negative(parts[2]);
+                if !good {
+                    add(*number, "expected grid <width> <height>.");
+                }
+                if seen_grid {
+                    add(*number, "'grid' is declared more than once.");
+                }
+                seen_grid = true;
+                good
+            }
+            Some("wind") => {
+                let good = parts.len() == 3 && in_range(parts[1], -1, 1) && in_range(parts[2], -1, 1);
+                if !good {
+                    add(*number, "expected wind <dx> <dy> with components -1..1.");
+                }
+                if seen_wind {
+                    add(*number, "'wind' is declared more than once.");
+                }
+                seen_wind = true;
+                good
+            }
+            Some("land") => {
+                let good = parts.len() == 3 && non_negative(parts[1]) && non_negative(parts[2]);
+                if !good {
+                    add(*number, "expected land <x> <y>.");
+                }
+                good
+            }
+            Some("current") => {
+                let good = parts.len() == 5
+                    && non_negative(parts[1])
+                    && non_negative(parts[2])
+                    && in_range(parts[3], -1, 1)
+                    && in_range(parts[4], -1, 1);
+                if !good {
+                    add(*number, "expected current <x> <y> <dx> <dy>.");
+                }
+                good
+            }
+            Some(other) => {
+                add(*number, &format!("unknown directive '{other}'."));
+                false
+            }
+            None => false,
+        };
+        let _ = valid;
+    }
+    if !seen_grid {
+        add(0, "Chart needs a 'grid <width> <height>' line.");
+    }
+    if !seen_wind {
+        add(0, "Chart needs a 'wind <dx> <dy> with components -1..1' line.");
+    }
+    found
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,6 +400,23 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn issues_report_every_bad_line_with_its_number() {
+        let text = concat!(
+            "# note\r\nTRIREME-CHART v1\r\ngrid 4 3\r\nwind 2 0\r\n",
+            "land x 2\r\ncurrent 1 1 0 9\r\nunknown 7\r\nwind 0 0\r\n"
+        );
+        let found = issues(text);
+        let lines: Vec<usize> = found.iter().map(|issue| issue.line).collect();
+        assert_eq!(lines, vec![4, 5, 6, 7, 8]);
+        assert!(found.iter().any(|issue| issue.line == 4 && issue.message.contains("wind <dx>")));
+        assert!(found.iter().any(|issue| issue.line == 5 && issue.message.contains("land <x>")));
+        assert!(found.iter().any(|issue| issue.line == 7 && issue.message.contains("unknown directive")));
+        assert!(found.iter().any(|issue| issue.line == 8 && issue.message.contains("more than once")));
+        assert!(issues("TRIREME-CHART v1\ngrid 4 3\nwind 0 0\n").is_empty());
+        assert!(issues("").len() >= 2);
     }
 
     #[test]

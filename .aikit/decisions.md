@@ -53,3 +53,10 @@ contract, a dependency, a data format or the architecture; IDs are consecutive a
 - **Context**: The browser previously zeroed wind and currents with its own JavaScript copy of the transformation, which could drift from the CLI chart --calm implementation.
 - **Decision**: Expose chart::calm through POST /api/calm and have the comparison fetch that baseline instead of deriving it in JavaScript; ADR-004's client-side derivation is superseded.
 - **Consequences**: One Rust implementation defines calm water for CLI and UI; the browser makes one extra local request per comparison, and API shape is covered by Rust and node tests.
+
+### ADR-007: Chart validation is reported by Rust as structured issues
+- **Date**: 2026-11-19
+- **Status**: Accepted
+- **Context**: The browser used its own line-numbered validation copy, which could drift from the Rust chart parser used by the CLI.
+- **Decision**: Add chart::issues and POST /api/issues, returning every line-numbered problem as JSON, and drive the browser validation panel from that response.
+- **Consequences**: One validator defines chart problems for CLI and UI; the browser sends one local request per edit with a sequence guard, and both sides are covered by tests.

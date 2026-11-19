@@ -71,6 +71,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/route") => api_route(&request.body),
         ("POST", "/api/calm") => api_calm(&request.body),
         ("POST", "/api/stats") => api_stats(&request.body),
+        ("POST", "/api/issues") => api_issues(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -91,6 +92,38 @@ fn serve_file(project_root: &Path, name: &str, content_type: &str) -> String {
             &format!("cannot read web/{name}: {err}"),
         ),
     }
+}
+
+/// Returns line-numbered chart problems as structured JSON.
+pub fn api_issues(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let found = chart::issues(&raw);
+    let items: Vec<String> = found
+        .iter()
+        .map(|issue| {
+            format!(
+                "{{\"line\":{},\"message\":{}}}",
+                issue.line,
+                json::quote(&issue.message)
+            )
+        })
+        .collect();
+    response(
+        200,
+        "application/json",
+        &format!("{{\"ok\":true,\"issues\":[{}]}}", items.join(",")),
+    )
 }
 
 /// Returns counts derived from a chart by the Rust core.
@@ -361,6 +394,19 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn issues_endpoint_returns_line_numbered_problems() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 2 2\\nwind 2 0\\n\"}";
+        let out = api_issues(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("\"line\":3"));
+        assert!(out.contains("wind <dx>"));
+        let clean = api_issues("{\"chart\":\"TRIREME-CHART v1\\ngrid 2 2\\nwind 0 0\\n\"}");
+        assert!(clean.contains("\"issues\":[]"), "{clean}");
+        assert!(api_issues("{}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]
