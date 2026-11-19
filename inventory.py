@@ -35,6 +35,7 @@ if __name__ == "__main__":
     print('output|chart-issues|web/index.html#chart-issues')
     print('button|copy-issues|web/index.html#copy-issues')
     print('button|canonicalize|web/index.html#canonicalize')
+    print('button|copy-fingerprint|web/index.html#copy-fingerprint')
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
     print('button|swap-endpoints|web/index.html#swap-endpoints')

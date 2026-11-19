@@ -26,6 +26,7 @@ const HELP_SECTIONS = {
     ["Copy stats", "Copy grid, land, current and wind counts"],
     ["Copy issues", "Copy the chart validation report"],
     ["Canonicalize", "Replace the chart with its Rust-normalized form"],
+    ["Copy fingerprint", "Copy the stable ID of the current chart"],
     ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
@@ -189,6 +190,26 @@ function chartIssues(text) {
     }
   }
   return issues;
+}
+
+function fingerprintRequestBody(text) {
+  return JSON.stringify({ chart: String(text || "") });
+}
+
+function parseFingerprintResponse(result) {
+  if (!result || !result.ok || typeof result.fingerprint !== "string") {
+    throw new Error(
+      result && result.error ? result.error : "Could not fingerprint the chart."
+    );
+  }
+  return result.fingerprint;
+}
+
+function formatFingerprintForClipboard(value) {
+  if (typeof value !== "string" || !value.length) {
+    throw new Error("No chart fingerprint to copy.");
+  }
+  return "Trireme chart fingerprint: " + value + "\n";
 }
 
 function normalizeRequestBody(text) {
@@ -1520,6 +1541,9 @@ if (typeof module !== "undefined" && module.exports) {
     parseIssuesResponse,
     normalizeRequestBody,
     parseNormalizeResponse,
+    fingerprintRequestBody,
+    parseFingerprintResponse,
+    formatFingerprintForClipboard,
     formatIssuesForClipboard,
     chartStats,
     formatChartStats,
@@ -1597,6 +1621,7 @@ if (typeof document !== "undefined") {
   const issuesPanel = document.getElementById("chart-issues");
   const copyIssuesButton = document.getElementById("copy-issues");
   const canonicalizeButton = document.getElementById("canonicalize");
+  const copyFingerprintButton = document.getElementById("copy-fingerprint");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
   const copyPresetStatsButton = document.getElementById("copy-preset-stats");
@@ -1701,6 +1726,31 @@ if (typeof document !== "undefined") {
         area.remove();
       }
       setState("Chart copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  async function copyChartFingerprint() {
+    try {
+      const response = await fetch("/api/fingerprint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: fingerprintRequestBody(chart.value),
+      });
+      const value = parseFingerprintResponse(await response.json());
+      const text = formatFingerprintForClipboard(value);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Chart fingerprint copied to the clipboard.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -2685,6 +2735,7 @@ if (typeof document !== "undefined") {
   copyStatsButton.addEventListener("click", copyChartStats);
   copyIssuesButton.addEventListener("click", copyChartIssues);
   canonicalizeButton.addEventListener("click", canonicalizeChart);
+  copyFingerprintButton.addEventListener("click", copyChartFingerprint);
   copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);

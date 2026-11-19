@@ -92,6 +92,9 @@ const {
   formatIssuesForClipboard,
   normalizeRequestBody,
   parseNormalizeResponse,
+  fingerprintRequestBody,
+  parseFingerprintResponse,
+  formatFingerprintForClipboard,
   compareRequestBody,
   parseCompareResponse,
   formatPresetStatsForClipboard,
@@ -131,7 +134,7 @@ test("the page declares every control the script binds", () => {
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-stats", "copy-stats", "chart-issues", "copy-issues",
-    "copy-preset-stats", "canonicalize", "from", "to",
+    "copy-preset-stats", "canonicalize", "copy-fingerprint", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -184,6 +187,18 @@ test("issues API helpers accept only structured line-numbered problems", () => {
   assert.throws(() => parseIssuesResponse(null), /Could not validate/);
   assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
   assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
+});
+
+test("fingerprint helpers validate the response and label the clipboard text", () => {
+  const text = "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n";
+  assert.equal(fingerprintRequestBody(text), JSON.stringify({ chart: text }));
+  assert.equal(parseFingerprintResponse({ ok: true, fingerprint: "abc123" }), "abc123");
+  assert.equal(formatFingerprintForClipboard("abc123"), "Trireme chart fingerprint: abc123\n");
+  assert.throws(() => parseFingerprintResponse(null), /Could not fingerprint/);
+  assert.throws(() => parseFingerprintResponse({ ok: false, error: "bad chart" }), /bad chart/);
+  assert.throws(() => parseFingerprintResponse({ ok: true }), /Could not fingerprint/);
+  assert.throws(() => formatFingerprintForClipboard(""), /No chart fingerprint/);
+  assert.match(formatHelpText(), /Copy fingerprint/);
 });
 
 test("normalize API helpers return the canonical chart strictly", () => {
@@ -1285,6 +1300,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("canonicalize"\)/);
   assert.match(source, /fetch\("\/api\/normalize"/);
   assert.match(source, /parseNormalizeResponse\(await response\.json\(\)\)/);
+  assert.match(source, /getElementById\("copy-fingerprint"\)/);
+  assert.match(source, /fetch\("\/api\/fingerprint"/);
+  assert.match(source, /formatFingerprintForClipboard\(value\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
