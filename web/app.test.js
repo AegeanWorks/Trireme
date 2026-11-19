@@ -47,6 +47,9 @@ const {
   localPresetsToJson,
   HELP_SECTIONS,
   formatHelpText,
+  presetFilename,
+  parsePresetsExport,
+  mergePresetFiles,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -74,7 +77,8 @@ test("the page declares every control the script binds", () => {
   for (const id of [
     "open-help", "help-panel", "help-text", "close-help",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
-    "local-preset", "file", "plan", "compare", "save",
+    "local-preset", "presets-file", "export-presets", "import-presets",
+    "file", "plan", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -532,6 +536,25 @@ test("help text covers CLI commands, chart syntax and shortcuts", () => {
   assert.equal(Object.keys(HELP_SECTIONS).length, 3);
 });
 
+test("preset files are versioned, validated and merged by name", () => {
+  const make = (name, chart) =>
+    buildLocalPreset(name, chart || "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n", "0,0", "3,0");
+  const a = make("alpha");
+  const b = make("beta", "TRIREME-CHART v1\ngrid 5 1\nwind 1 0\n");
+  const file = localPresetsToJson([a, b]);
+  assert.equal(presetFilename(), "trireme.presets.json");
+  assert.deepEqual(parsePresetsExport(file), [a, b]);
+  assert.throws(() => parsePresetsExport("nope"), /not valid JSON/);
+  assert.throws(() => parsePresetsExport('{"schema":"other","presets":[]}'), /schema/);
+  assert.throws(() => parsePresetsExport('{"schema":"trireme.presets/1","presets":[]}'), /no usable presets/);
+  const changed = make("alpha", "TRIREME-CHART v1\ngrid 6 1\nwind -1 0\n");
+  const merged = mergePresetFiles([a], [changed, b]);
+  assert.deepEqual(merged.map((p) => p.name), ["alpha", "beta"]);
+  assert.equal(merged[0].chart, changed.chart);
+  assert.deepEqual(mergePresetFiles([], [], 3), []);
+  assert.equal(JSON.parse(file).schema, "trireme.presets/1");
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -552,6 +575,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("open-help"\)\.addEventListener\("click", openHelp\)/);
   assert.match(source, /getElementById\("close-help"\)\.addEventListener\("click", closeHelp\)/);
   assert.match(source, /helpText\.textContent = formatHelpText\(\)/);
+  assert.match(source, /exportPresetsButton\.addEventListener\("click", exportPresets\)/);
+  assert.match(source, /presetsFile\.addEventListener\("change", importPresets\)/);
+  assert.match(source, /parsePresetsExport\(await picked\.text\(\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

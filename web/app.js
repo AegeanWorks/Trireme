@@ -617,6 +617,40 @@ function localPresetsToJson(presets) {
   return JSON.stringify({ schema: "trireme.presets/1", presets: sorted }, null, 2) + "\n";
 }
 
+function presetFilename() {
+  return LOCAL_PRESETS_KEY + ".json";
+}
+
+function parsePresetsExport(raw) {
+  let document;
+  try {
+    document = JSON.parse(String(raw));
+  } catch (error) {
+    throw new Error("Preset file is not valid JSON.");
+  }
+  if (!document || document.schema !== "trireme.presets/1" || !Array.isArray(document.presets)) {
+    throw new Error("Preset file must have schema 'trireme.presets/1' and a presets array.");
+  }
+  const presets = parseLocalPresets(JSON.stringify(document));
+  if (presets.length === 0) {
+    throw new Error("Preset file contains no usable presets.");
+  }
+  return presets;
+}
+
+function mergePresetFiles(current, incoming, limit) {
+  const cap = Number.isInteger(limit) && limit > 0 ? limit : LOCAL_PRESET_LIMIT;
+  const byName = new Map();
+  for (const item of [...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])]) {
+    if (item && typeof item.name === "string") {
+      byName.set(normalizePresetName(item.name), item);
+    }
+  }
+  return [...byName.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, cap);
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -644,6 +678,9 @@ if (typeof module !== "undefined" && module.exports) {
     parseLocalPresets,
     mergeLocalPresets,
     localPresetsToJson,
+    presetFilename,
+    parsePresetsExport,
+    mergePresetFiles,
     PRESETS,
     point,
     applyPreset,
@@ -673,6 +710,9 @@ if (typeof document !== "undefined") {
   const presetName = document.getElementById("preset-name");
   const savePresetButton = document.getElementById("save-preset");
   const localPreset = document.getElementById("local-preset");
+  const presetsFile = document.getElementById("presets-file");
+  const exportPresetsButton = document.getElementById("export-presets");
+  const importPresetsButton = document.getElementById("import-presets");
   const file = document.getElementById("file");
   const issuesPanel = document.getElementById("chart-issues");
   const status = document.getElementById("status");
@@ -753,6 +793,39 @@ if (typeof document !== "undefined") {
       renderLocalPresets();
       localPreset.value = item.name;
       setState("Preset '" + item.name + "' saved locally.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  function exportPresets() {
+    const presets = storedPresets();
+    const blob = new Blob([localPresetsToJson(presets)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const name = presetFilename();
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Exported " + presets.length + " presets as " + name + ".", "good");
+  }
+
+  async function importPresets() {
+    const picked = presetsFile.files && presetsFile.files[0];
+    if (!picked) {
+      setState("Choose a trireme.presets.json file first.", "bad");
+      return;
+    }
+    try {
+      const incoming = parsePresetsExport(await picked.text());
+      const merged = mergePresetFiles(storedPresets(), incoming);
+      localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(merged));
+      presetsFile.value = "";
+      renderLocalPresets();
+      setState("Imported " + incoming.length + " presets; " + merged.length + " kept.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -1168,6 +1241,9 @@ if (typeof document !== "undefined") {
   renderLocalPresets();
   savePresetButton.addEventListener("click", saveNamedPreset);
   localPreset.addEventListener("change", applyLocalPreset);
+  exportPresetsButton.addEventListener("click", exportPresets);
+  importPresetsButton.addEventListener("click", () => presetsFile.click());
+  presetsFile.addEventListener("change", importPresets);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();

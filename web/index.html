@@ -45,6 +45,11 @@
         <span>Saved presets (this browser)</span>
         <select id="local-preset"><option value="">No saved presets</option></select>
       </label>
+      <div class="actions">
+        <input id="presets-file" type="file" accept=".json,application/json" hidden>
+        <button id="export-presets" type="button" class="secondary">Export presets</button>
+        <button id="import-presets" type="button" class="secondary">Import presets</button>
+      </div>
       <label class="field">
         <span>Chart</span>
         <textarea id="chart" rows="10" spellcheck="false">TRIREME-CHART v1
