@@ -108,7 +108,10 @@ current 6 1 -1 0</textarea>
     <section class="panel" aria-labelledby="history-title">
       <div class="history-head">
         <h2 id="history-title">Route history</h2>
-        <button id="clear-history" type="button" class="secondary">Clear</button>
+        <div class="actions">
+          <button id="export-history" type="button" class="secondary">Export JSON</button>
+          <button id="clear-history" type="button" class="secondary">Clear</button>
+        </div>
       </div>
       <p class="hint">The last 10 plans stay in this browser only.</p>
       <ol id="history-list" class="history-list"><li>No routes planned yet.</li></ol>

@@ -302,6 +302,34 @@ function formatHistoryEntry(entry) {
   return entry.note ? line + " \u00b7 " + entry.note : line;
 }
 
+function historyToJson(entries) {
+  if (!Array.isArray(entries)) {
+    throw new Error("No route history to export.");
+  }
+  const clean = entries
+    .filter((entry) => entry && typeof entry.at === "number" && typeof entry.time === "number")
+    .map((entry) => ({
+      at: entry.at,
+      from: entry.from,
+      to: entry.to,
+      time: entry.time,
+      steps: entry.steps,
+      heading: entry.heading,
+      note: entry.note,
+      chart: typeof entry.chart === "string" ? entry.chart : "",
+    }));
+  const document = {
+    schema: "trireme.history/1",
+    count: clean.length,
+    entries: clean,
+  };
+  return JSON.stringify(document, null, 2) + "\n";
+}
+
+function historyJsonFilename() {
+  return HISTORY_KEY + ".json";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -311,6 +339,8 @@ if (typeof module !== "undefined" && module.exports) {
     parseHistory,
     formatHistoryEntry,
     restoreEntry,
+    historyToJson,
+    historyJsonFilename,
     PRESETS,
     point,
     applyPreset,
@@ -416,6 +446,21 @@ if (typeof document !== "undefined") {
     } catch (error) {
       setState(String(error.message), "bad");
     }
+  }
+
+  function exportHistory() {
+    const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    const name = historyJsonFilename();
+    const blob = new Blob([historyToJson(entries)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("History exported as " + name + " (" + entries.length + " entries).", "good");
   }
 
   function show(route) {
@@ -655,6 +700,7 @@ if (typeof document !== "undefined") {
     renderHistory();
     setState("Route history cleared.", "good");
   });
+  document.getElementById("export-history").addEventListener("click", exportHistory);
   historyList.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-index]");
     if (button) {

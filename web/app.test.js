@@ -27,6 +27,8 @@ const {
   parseHistory,
   formatHistoryEntry,
   restoreEntry,
+  historyToJson,
+  historyJsonFilename,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -56,7 +58,7 @@ test("the page declares every control the script binds", () => {
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
-    "history-title", "clear-history", "history-list",
+    "history-title", "clear-history", "export-history", "history-list",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
   }
@@ -305,6 +307,28 @@ test("restore reloads the stored chart and endpoints", () => {
   assert.deepEqual(restoreEntry(roundTrip[0]), restored);
 });
 
+test("history JSON export keeps charts, endpoints and a stable schema", () => {
+  const chartText = "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\n";
+  const entry = historyEntry(
+    { time: 647, steps: ["E"] },
+    { chart: chartText, from: [0, 2], to: [3, 0] },
+    7,
+    "calm water compared"
+  );
+  const raw = historyToJson([entry, null, { at: "bad" }]);
+  const document = JSON.parse(raw);
+  assert.equal(document.schema, "trireme.history/1");
+  assert.equal(document.count, 1);
+  assert.equal(document.entries[0].chart, chartText);
+  assert.deepEqual(document.entries[0].from, [0, 2]);
+  assert.deepEqual(document.entries[0].to, [3, 0]);
+  assert.equal(document.entries[0].note, "calm water compared");
+  assert.equal(historyToJson([entry]), raw);
+  assert.throws(() => historyToJson(null), /No route history/);
+  assert.equal(historyJsonFilename(), "trireme.history.json");
+  assert.deepEqual(JSON.parse(historyToJson([])).entries, []);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -327,6 +351,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-summary"\)\.addEventListener/);
   assert.match(source, /navigator\.clipboard\.writeText/);
   assert.match(source, /formatRouteSummary\(lastRoute\)/);
+  assert.match(source, /getElementById\("export-history"\)\.addEventListener/);
+  assert.match(source, /historyToJson\(entries\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });
