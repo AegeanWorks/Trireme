@@ -79,6 +79,7 @@ const {
   chartStats,
   formatChartStats,
   formatChartStatsForClipboard,
+  formatPresetStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
   formatChartDiff,
@@ -114,7 +115,7 @@ test("the page declares every control the script binds", () => {
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
-    "chart", "chart-stats", "copy-stats", "chart-issues", "from", "to",
+    "chart", "chart-stats", "copy-stats", "chart-issues", "copy-preset-stats", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -1003,6 +1004,24 @@ test("clipboard chart stats are labelled and reuse the panel format", () => {
   assert.match(formatHelpText(), /Copy stats/);
 });
 
+test("preset stats clipboard block names the preset and its chart", () => {
+  const preset = buildLocalPreset(
+    "Aegean",
+    "TRIREME-CHART v1\ngrid 8 4\nwind 1 0\nland 2 2\ncurrent 5 2 0 -1\n",
+    "0,2",
+    "7,0"
+  );
+  assert.equal(
+    formatPresetStatsForClipboard(preset),
+    "Trireme preset: Aegean\n" +
+      "8x4 grid \u00b7 32 cells \u00b7 1 land \u00b7 1 currents \u00b7 wind (1,0)\n" +
+      "From 0,2 to 7,0\n"
+  );
+  assert.throws(() => formatPresetStatsForClipboard(null), /No saved preset/);
+  assert.throws(() => formatPresetStatsForClipboard({ name: "x" }), /No saved preset/);
+  assert.match(formatHelpText(), /Copy preset stats/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1084,6 +1103,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-stats"\)/);
   assert.match(source, /copyStatsButton\.addEventListener\("click", copyChartStats\)/);
   assert.match(source, /formatChartStatsForClipboard\(chartStats\(chart\.value\)\)/);
+  assert.match(source, /getElementById\("copy-preset-stats"\)/);
+  assert.match(source, /copyPresetStatsButton\.addEventListener\("click", copyPresetStats\)/);
+  assert.match(source, /formatPresetStatsForClipboard\(preset\)/);
   assert.match(source, /getElementById\("copy-markdown"\)/);
   assert.match(source, /copyMarkdownButton\.addEventListener\("click", copyRouteMarkdown\)/);
   assert.match(source, /formatRouteAsMarkdown\(lastRoute\)/);

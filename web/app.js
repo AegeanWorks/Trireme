@@ -23,6 +23,7 @@ const HELP_SECTIONS = {
     ["Swap endpoints", "Exchange the from and to coordinates"],
     ["Copy chart", "Copy the chart text with its endpoints noted"],
     ["Copy stats", "Copy grid, land, current and wind counts"],
+    ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
@@ -1250,6 +1251,23 @@ function formatChartStatsForClipboard(stats) {
   return "Trireme chart stats\n" + formatChartStats(stats) + "\n";
 }
 
+function formatPresetStatsForClipboard(preset) {
+  if (!preset || typeof preset.chart !== "string" || typeof preset.name !== "string") {
+    throw new Error("No saved preset to summarize.");
+  }
+  return (
+    "Trireme preset: " +
+    preset.name +
+    "\n" +
+    formatChartStats(chartStats(preset.chart)) +
+    "\nFrom " +
+    String(preset.from || "?") +
+    " to " +
+    String(preset.to || "?") +
+    "\n"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1315,6 +1333,7 @@ if (typeof module !== "undefined" && module.exports) {
     chartStats,
     formatChartStats,
     formatChartStatsForClipboard,
+    formatPresetStatsForClipboard,
     formatChartForClipboard,
     diffCharts,
     formatChartDiff,
@@ -1378,6 +1397,7 @@ if (typeof document !== "undefined") {
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
+  const copyPresetStatsButton = document.getElementById("copy-preset-stats");
   const status = document.getElementById("status");
   const time = document.getElementById("time");
   const stepsCount = document.getElementById("steps-count");
@@ -1914,6 +1934,30 @@ if (typeof document !== "undefined") {
     setState("History exported as " + name + " (" + entries.length + " entries).", "good");
   }
 
+  async function copyPresetStats() {
+    const preset = storedPresets().find((item) => item.name === localPreset.value);
+    if (!preset) {
+      setState("Select a saved preset before copying its stats.", "bad");
+      return;
+    }
+    const text = formatPresetStatsForClipboard(preset);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Preset statistics copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
   async function copyHistorySummary() {
     const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
     const text = formatHistorySummaryForClipboard(historySummary(entries));
@@ -2312,6 +2356,7 @@ if (typeof document !== "undefined") {
   swapEndpointsButton.addEventListener("click", swapEditorEndpoints);
   copyChartButton.addEventListener("click", copyCurrentChart);
   copyStatsButton.addEventListener("click", copyChartStats);
+  copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);
   document.getElementById("import").addEventListener("click", importChart);
