@@ -60,6 +60,39 @@
       "timestamp": 1795106623.504384,
       "timestamp_str": "2026-11-19 19:43:43",
       "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 2",
+      "phase_num": 3,
+      "description": "Reforge stage 2: window 6, 3 commit(s), 7 file(s) reviewed (unreviewed), 0 finding(s), 0 repaired, empty \u2014 nothing to commit",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795106966.2502697,
+      "timestamp_str": "2026-11-19 19:49:26",
+      "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 2",
+      "phase_num": 3,
+      "description": "Reforge stage 2: stage 2 host review reviewed; run active; coverage 18/18",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795107129.5487478,
+      "timestamp_str": "2026-11-19 19:52:09",
+      "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 2",
+      "phase_num": 3,
+      "description": "Reforge stage 2: stage 2 host review reviewed; run active; coverage 18/18",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795107148.1371894,
+      "timestamp_str": "2026-11-19 19:52:28",
+      "agent": "opencode"
     }
   ]
 }
