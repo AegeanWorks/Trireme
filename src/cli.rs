@@ -1,32 +1,32 @@
 //! Hand-rolled argument parsing for the `trireme` binary: no CLI crate, no
-//! global state, and explicit exit codes (0 ok, 1 verification mismatch, 2 usage/IO).
+//! global state, and explicit exit codes (0 ok, 1 no route, 2 usage/IO).
 
 use std::fs;
-use std::path::{Path, PathBuf};
 
-use crate::manifest;
-use crate::sha256::{digest_reader, to_hex};
+use crate::chart;
+use crate::router::{find_route, render_ascii};
 
 const HELP: &str = "\
-trireme — deterministic, content-addressed directory manifests (offline)
+trireme — offline sailing route planner for small sea charts
 
 USAGE:
-  trireme hash <file>
-  trireme manifest <dir> [-o <file>] [-e <name>]...
-  trireme verify <dir> <manifest> [-e <name>]...
+  trireme route <chart> --from X,Y --to X,Y [--ascii]
+  trireme chart <chart>
   trireme help | --help | --version
 
-COMMANDS:
-  hash      Print the SHA-256 of one file.
-  manifest  List every regular file as <digest>\\t<size>\\t<relative path>.
-  verify    Compare a directory with a manifest; exit 1 on any difference.
-  -e NAME   Skip files or directories with this name (repeatable).
-  -o FILE   Write the manifest to FILE instead of stdout.
+CHART:
+  TRIREME-CHART v1
+  grid <width> <height>
+  wind <dx> <dy>              # direction the wind blows toward, each -1..=1
+  land <x> <y>               # repeatable, impassable
+  current <x> <y> <dx> <dy>  # repeatable local flow
+
+  Lines may appear in any order; '#' comments and blank lines are ignored.
 
 EXIT CODES:
-  0  success (or a clean verification)
-  1  verification found added, missing or changed files
-  2  bad arguments, unreadable input or another error
+  0  a route was found (or the chart was described)
+  1  the goal is unreachable
+  2  bad arguments, unreadable chart or another error
 ";
 
 /// Runs the CLI with the process arguments and returns the exit code.
@@ -41,13 +41,12 @@ pub fn run(args: &[String]) -> i32 {
             println!("trireme {}", env!("CARGO_PKG_VERSION"));
             0
         }
-        Some("hash") => cmd_hash(&args[1..]),
-        Some("manifest") => cmd_manifest(&args[1..]),
-        Some("verify") => cmd_verify(&args[1..]),
+        Some("route") => cmd_route(&args[1..]),
+        Some("chart") => cmd_chart(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
-            "Trireme only understands hash, manifest and verify.",
-            "Run 'trireme --help' to see the exact syntax.",
+            "Trireme only plans routes and describes charts.",
+            "Run 'trireme --help' to see the chart format.",
         ),
         None => {
             print!("{HELP}");
@@ -63,189 +62,144 @@ fn fail(message: &str, why: &str, fix: &str) -> i32 {
     2
 }
 
-fn cmd_hash(args: &[&str]) -> i32 {
-    if args.len() != 1 || args[0].starts_with('-') {
-        return fail(
-            "hash needs exactly one file path",
-            "A digest is defined for one stream of bytes.",
-            "Use: trireme hash <file>",
-        );
-    }
-    let path = Path::new(args[0]);
-    let file = match fs::File::open(path) {
-        Ok(file) => file,
+fn read_chart(path: &str) -> Result<chart::Chart, i32> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
         Err(err) => {
-            return fail(
-                &format!("cannot open '{}': {err}", path.display()),
-                "Hashing requires read access to the file.",
-                "Check the path and permissions, then retry.",
-            )
+            return Err(fail(
+                &format!("cannot read chart '{path}': {err}"),
+                "A chart must exist and be valid UTF-8.",
+                "Create a text file with a 'TRIREME-CHART v1' header, grid and wind.",
+            ))
         }
     };
-    match digest_reader(file) {
-        Ok(raw) => {
-            println!("{}", to_hex(&raw));
-            0
-        }
-        Err(err) => fail(
-            &format!("cannot hash '{}': {err}", path.display()),
-            "The file could not be read to its end.",
-            "Check for I/O errors and retry.",
-        ),
+    chart::parse(&text).map_err(|err| {
+        fail(
+            &err,
+            "Trireme will not guess what a damaged chart meant.",
+            "Compare the file with the format in 'trireme --help'.",
+        )
+    })
+}
+
+fn parse_point(value: &str, flag: &str) -> Result<(u32, u32), String> {
+    let mut parts = value.split(',');
+    let x = parts.next().and_then(|part| part.parse::<u32>().ok());
+    let y = parts.next().and_then(|part| part.parse::<u32>().ok());
+    match (x, y, parts.next()) {
+        (Some(x), Some(y), None) => Ok((x, y)),
+        _ => Err(format!("{flag} needs X,Y with non-negative integers, got '{value}'")),
     }
 }
 
-/// Splits positional paths from `-e` excludes and an optional `-o` output.
-fn parse_options<'a>(
-    args: &'a [&'a str],
-    allow_output: bool,
-) -> Result<(Vec<&'a str>, Vec<String>, Option<PathBuf>), String> {
-    let mut positional = Vec::new();
-    let mut excludes = Vec::new();
-    let mut output = None;
+fn cmd_route(args: &[&str]) -> i32 {
+    let mut chart_path: Option<&str> = None;
+    let mut from: Option<&str> = None;
+    let mut to: Option<&str> = None;
+    let mut ascii = false;
     let mut index = 0;
     while index < args.len() {
         match args[index] {
-            "-e" | "--exclude" => {
+            "--from" | "--to" => {
+                let flag = args[index];
                 index += 1;
                 match args.get(index) {
-                    Some(name) if !name.is_empty() => excludes.push((*name).to_string()),
-                    _ => return Err("-e needs a name".to_string()),
+                    Some(value) if flag == "--from" => from = Some(value),
+                    Some(value) => to = Some(value),
+                    None => return fail(&format!("{flag} needs X,Y"), "Both endpoints are required.", "Use --from X,Y --to X,Y."),
                 }
             }
-            "-o" | "--output" if allow_output => {
-                index += 1;
-                match args.get(index) {
-                    Some(path) if !path.is_empty() => output = Some(PathBuf::from(path)),
-                    _ => return Err("-o needs a file path".to_string()),
-                }
+            "--ascii" => ascii = true,
+            other if other.starts_with('-') => {
+                return fail(
+                    &format!("unknown option '{other}'"),
+                    "route accepts --from, --to and --ascii.",
+                    "Use: trireme route <chart> --from X,Y --to X,Y [--ascii]",
+                )
             }
-            other if other.starts_with('-') => return Err(format!("unknown option '{other}'")),
-            other => positional.push(other),
+            other if chart_path.is_none() => chart_path = Some(other),
+            other => {
+                return fail(
+                    &format!("unexpected argument '{other}'"),
+                    "route takes exactly one chart file.",
+                    "Use: trireme route <chart> --from X,Y --to X,Y",
+                )
+            }
         }
         index += 1;
     }
-    Ok((positional, excludes, output))
-}
 
-fn cmd_manifest(args: &[&str]) -> i32 {
-    let (positional, excludes, output) = match parse_options(args, true) {
-        Ok(parsed) => parsed,
-        Err(err) => {
+    let (path, from, to) = match (chart_path, from, to) {
+        (Some(path), Some(from), Some(to)) => (path, from, to),
+        _ => {
             return fail(
-                &err,
-                "manifest accepts one directory, optional -e NAME and optional -o FILE.",
-                "Use: trireme manifest <dir> [-o <file>] [-e <name>]...",
+                "route needs a chart, --from and --to",
+                "A route is a query: the chart gives the sea, the flags give the endpoints.",
+                "Use: trireme route <chart> --from X,Y --to X,Y [--ascii]",
             )
         }
     };
-    if positional.len() != 1 {
-        return fail(
-            "manifest needs exactly one directory",
-            "A manifest describes one tree.",
-            "Use: trireme manifest <dir>",
-        );
-    }
-    let root = Path::new(positional[0]);
-    let entries = match manifest::collect(root, &excludes) {
-        Ok(entries) => entries,
+    let (from, to) = match (parse_point(from, "--from"), parse_point(to, "--to")) {
+        (Ok(from), Ok(to)) => (from, to),
+        (Err(err), _) | (_, Err(err)) => {
+            return fail(&err, "Endpoints are grid coordinates.", "Write them as X,Y, for example --from 0,0 --to 4,3.")
+        }
+    };
+    let sea = match read_chart(path) {
+        Ok(sea) => sea,
+        Err(code) => return code,
+    };
+    let route = match find_route(&sea, from, to) {
+        Ok(Some(route)) => route,
+        Ok(None) => {
+            println!(
+                "NO ROUTE: ({},{}) cannot reach ({},{}) on this chart",
+                from.0, from.1, to.0, to.1
+            );
+            return 1;
+        }
         Err(err) => {
             return fail(
                 &err,
-                "Every file in the tree must be readable to produce a faithful manifest.",
-                "Fix the named path or add '-e <name>' to skip it.",
-            )
-        }
-    };
-    let text = manifest::to_text(&entries);
-    match output {
-        Some(path) => match fs::write(&path, text) {
-            Ok(()) => {
-                eprintln!("wrote {} entries to {}", entries.len(), path.display());
-                0
-            }
-            Err(err) => fail(
-                &format!("cannot write '{}': {err}", path.display()),
-                "The manifest output path is not writable.",
-                "Choose a writable path or omit -o to print to stdout.",
-            ),
-        },
-        None => {
-            print!("{text}");
-            0
-        }
-    }
-}
-
-fn cmd_verify(args: &[&str]) -> i32 {
-    let (positional, excludes, _) = match parse_options(args, false) {
-        Ok(parsed) => parsed,
-        Err(err) => {
-            return fail(
-                &err,
-                "verify accepts a directory, a manifest file and optional -e NAME.",
-                "Use: trireme verify <dir> <manifest> [-e <name>]...",
-            )
-        }
-    };
-    if positional.len() != 2 {
-        return fail(
-            "verify needs a directory and a manifest",
-            "Verification compares a tree against a recorded snapshot.",
-            "Use: trireme verify <dir> <manifest>",
-        );
-    }
-    let root = Path::new(positional[0]);
-    let manifest_path = Path::new(positional[1]);
-    let text = match fs::read_to_string(manifest_path) {
-        Ok(text) => text,
-        Err(err) => {
-            return fail(
-                &format!("cannot read '{}': {err}", manifest_path.display()),
-                "A manifest must exist and be valid UTF-8.",
-                "Create one with 'trireme manifest <dir> -o <file>'.",
-            )
-        }
-    };
-    let expected = match manifest::from_text(&text) {
-        Ok(entries) => entries,
-        Err(err) => {
-            return fail(
-                &err,
-                "Trireme will not guess what a damaged manifest meant.",
-                "Regenerate it with 'trireme manifest <dir> -o <file>'.",
-            )
-        }
-    };
-    let report = match manifest::verify(root, &expected, &excludes) {
-        Ok(report) => report,
-        Err(err) => {
-            return fail(
-                &err,
-                "Verification needs to hash every file in the tree.",
-                "Fix the named path or add '-e <name>' to skip it.",
+                "Endpoints must be inside the chart.",
+                "Check the grid size with 'trireme chart <chart>'.",
             )
         }
     };
 
-    println!("matched={}", report.matched);
-    println!("added={}", report.added.len());
-    println!("missing={}", report.missing.len());
-    println!("changed={}", report.changed.len());
-    for path in &report.added {
-        println!("ADDED    {path}");
-    }
-    for path in &report.missing {
-        println!("MISSING  {path}");
-    }
-    for path in &report.changed {
-        println!("CHANGED  {path}");
-    }
-    if report.is_clean() {
-        println!("OK: tree matches the manifest");
-        0
+    println!("TRIREME ROUTE");
+    println!("from ({},{}) to ({},{})", from.0, from.1, to.0, to.1);
+    if route.steps.is_empty() {
+        println!("steps (already there)");
     } else {
-        println!("FAIL: tree differs from the manifest");
-        1
+        println!("steps {}", route.steps.join(" "));
     }
+    let path: Vec<String> = route.waypoints.iter().map(|(x, y)| format!("({x},{y})")).collect();
+    println!("waypoints {}", path.join(" -> "));
+    println!("time {} units", route.time);
+    println!("explored {} cells", route.explored);
+    if ascii {
+        println!("{}", render_ascii(&sea, from, to, Some(&route)));
+    }
+    0
+}
+
+fn cmd_chart(args: &[&str]) -> i32 {
+    if args.len() != 1 || args[0].starts_with('-') {
+        return fail(
+            "chart needs exactly one chart file",
+            "Describing a chart requires a single source.",
+            "Use: trireme chart <chart>",
+        );
+    }
+    let sea = match read_chart(args[0]) {
+        Ok(sea) => sea,
+        Err(code) => return code,
+    };
+    println!("TRIREME CHART");
+    println!("grid {}x{}", sea.width, sea.height);
+    println!("wind ({},{})", sea.wind.dx, sea.wind.dy);
+    println!("land {}", sea.land.len());
+    println!("currents {}", sea.currents.len());
+    0
 }

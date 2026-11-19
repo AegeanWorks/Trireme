@@ -1,11 +1,11 @@
 [package]
 name = "trireme"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Deterministic, content-addressed directory manifests with SHA-256, verified offline."
+description = "An offline sailing route planner: deterministic shortest-time routing over small sea charts."
 license = "LicenseRef-AL-1.1"
 readme = "README.md"
-keywords = ["cli", "checksum", "manifest", "offline"]
+keywords = ["cli", "pathfinding", "offline", "routing"]
 categories = ["command-line-utilities"]
 
 [dependencies]

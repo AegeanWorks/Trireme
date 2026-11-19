@@ -2,9 +2,9 @@
 
 [![Built with AIKit](https://img.shields.io/badge/built%20with-AIKit-6f42c1)](https://github.com/AegeanWorks/AIKit)
 
-Trireme is a zero-dependency Rust CLI that builds deterministic, content-addressed directory manifests with SHA-256 and verifies trees against them, offline.
+Trireme is an offline sailing route planner: deterministic shortest-time routing over small sea charts.
 
-A manifest is a plain text file: one version header, then one `<sha256>\t<size>\t<relative-path>` line per regular file, sorted by path with `/` separators. It is meant to be read by humans and diffed by git. Trireme hashes with its own in-tree SHA-256, so it needs no crates, no network and no runtime.
+You describe a grid of water, land, a prevailing wind and optional local currents in a plain text chart. Trireme finds the fastest route with Dijkstra over eight headings, costs each move by wind and current alignment, and breaks ties by coordinate — so the same chart and endpoints always produce the same route. It is a search tool, not a checksum or file-verification tool.
 
 ## ⚡ 30-Second Cold-Start Quick Reference
 
@@ -13,28 +13,34 @@ A manifest is a plain text file: one version header, then one `<sha256>\t<size>\
   ```bash
   cargo test
   ```
-- **Typical use**:
+- **Try it** (from the project root):
   ```bash
-  # Best: write the snapshot outside the tree you are snapshotting.
-  cargo run -- manifest ./src -o ../src.manifest
-  cargo run -- verify ./src ../src.manifest
-
-  # If you keep the manifest inside the tree, exclude its own name:
-  cargo run -- manifest . -o trireme.manifest -e trireme.manifest
-  cargo run -- verify . trireme.manifest -e trireme.manifest
-  # exit 0 = clean, 1 = added/missing/changed files, 2 = bad input or I/O error
+  cargo run -- chart examples/aegean.txt
+  cargo run -- route examples/aegean.txt --from 0,2 --to 7,0 --ascii
+  # exit 0 = route found, 1 = unreachable, 2 = bad chart or arguments
   ```
 
 ### 🛠️ Commands
 
 | Command | What it does |
 |---|---|
-| `trireme hash <file>` | Print the SHA-256 of one file. |
-| `trireme manifest <dir> [-o <file>] [-e <name>]...` | Write a deterministic snapshot of a tree (stdout by default). |
-| `trireme verify <dir> <manifest> [-e <name>]...` | Report `ADDED`, `MISSING` and `CHANGED` paths and exit accordingly. |
+| `trireme chart <chart>` | Describe the grid, wind, land and current count. |
+| `trireme route <chart> --from X,Y --to X,Y [--ascii]` | Print the headings, waypoints, time in integer units and cells explored. |
 | `trireme help` / `trireme --version` | Show usage or the version. |
 
-`-e NAME` skips any file or directory with that name at any depth; symlinks are always skipped. Paths with tabs or newlines are refused rather than encoded, so a manifest is never ambiguous.
+### 🗺️ Chart format
+
+```text
+TRIREME-CHART v1
+grid <width> <height>
+wind <dx> <dy>                 # direction the wind blows toward; each -1..=1
+land <x> <y>                   # repeatable, impassable
+current <x> <y> <dx> <dy>      # repeatable local flow
+```
+
+Directives may appear in any order; blank lines and `#` comments are ignored. `grid` and `wind` are required exactly once. Coordinates start at `(0,0)` in the top-left corner.
+
+Each move is orthogonal (distance 10) or diagonal (distance 14). Its time is `distance * 100 / speed`, where `speed = max(1, 10 + 2·wind·heading + 2·current·heading)`. All arithmetic is integer, which keeps results identical across platforms.
 
 ### 🛠️ AIKit Commands (run from the AIKit folder)
 
@@ -51,15 +57,16 @@ A manifest is a plain text file: one version header, then one `<sha256>\t<size>\
 trireme/
 ├── Cargo.toml                <- crate manifest; no dependencies
 ├── Cargo.lock                <- pinned versions for reproducible builds
+├── examples/
+│   └── aegean.txt            <- small example chart used in the quick start
 ├── src/
 │   ├── main.rs               <- process entry point and exit code
 │   ├── lib.rs                <- public library surface
 │   ├── cli.rs                <- argument parsing and human-readable output
-│   ├── sha256.rs             <- streaming SHA-256, written in-tree
-│   └── manifest.rs           <- collect, serialise, parse and compare trees
+│   ├── chart.rs              <- chart format, parsing and validation
+│   └── router.rs             <- Dijkstra routing, integer costs and ASCII map
 ├── tests/
 │   └── cli.rs                <- end-to-end proofs through the real binary
-├── assets/                   <- generated logo and social preview candidates
 ├── inventory.py              <- AI-compat inventory: kind|name|locator lines (ADR-315)
 ├── demo.py                   <- AI-compat scripted drive: WORLD-DELTA lines (ADR-315)
 ├── README.md
@@ -67,6 +74,7 @@ trireme/
 ├── COMMERCIAL.md             <- Commercial licensing terms
 ├── LICENSES/                 <- REUSE license texts
 ├── REUSE.toml                <- Machine-readable SPDX metadata
+├── assets/                   <- generated logo and social preview candidates
 ├── .gitattributes            <- LF line endings on every platform
 ├── .gitignore                <- transient AIKit state excluded
 └── .aikit/                   <- this project's memory: record, ledger, decisions

@@ -1,9 +1,8 @@
-//! Trireme: deterministic, content-addressed directory manifests.
+//! Trireme: an offline sailing route planner for small, human-readable sea charts.
 //!
-//! The library exposes the same three operations as the binary — hashing,
-//! manifest I/O and verification — so other tools can drive it without spawning
-//! a process.
+//! The library exposes chart parsing, deterministic shortest-time routing and
+//! an ASCII renderer, so other tools can drive it without spawning a process.
 
+pub mod chart;
 pub mod cli;
-pub mod manifest;
-pub mod sha256;
+pub mod router;

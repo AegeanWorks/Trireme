@@ -1,4 +1,4 @@
-//! End-to-end proofs through the real binary: stdout, stderr and exit codes.
+//! End-to-end proofs through the real binary: stdout and exit codes.
 
 use std::fs;
 use std::path::PathBuf;
@@ -21,15 +21,14 @@ impl Scratch {
         Self(path)
     }
 
-    fn write(&self, relative: &str, body: &[u8]) -> PathBuf {
-        let target = self.0.join(relative);
-        fs::create_dir_all(target.parent().unwrap()).unwrap();
-        fs::write(&target, body).unwrap();
-        target
-    }
-
-    fn tree(&self) -> PathBuf {
-        self.0.join("tree")
+    fn chart(&self, body: &str) -> String {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let file = self.0.join(format!("chart-{stamp}.txt"));
+        fs::write(&file, format!("TRIREME-CHART v1\n{body}")).unwrap();
+        file.to_str().unwrap().to_string()
     }
 }
 
@@ -56,105 +55,71 @@ fn ok_text(output: &Output) -> String {
 }
 
 #[test]
-fn hash_prints_the_known_sha256() {
+fn chart_command_describes_the_environment() {
     let scratch = Scratch::new();
-    let file = scratch.write("abc.txt", b"abc");
-    let out = ok_text(&run(&["hash", file.to_str().unwrap()]));
-    assert_eq!(
-        out.trim(),
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-    );
+    let chart = scratch.chart("grid 4 3\nwind 1 0\nland 2 1\ncurrent 1 1 0 1\n");
+    let out = ok_text(&run(&["chart", &chart]));
+    assert!(out.contains("grid 4x3"));
+    assert!(out.contains("wind (1,0)"));
+    assert!(out.contains("land 1"));
+    assert!(out.contains("currents 1"));
 }
 
 #[test]
-fn manifest_and_verify_a_clean_tree() {
+fn route_finds_a_known_straight_path() {
     let scratch = Scratch::new();
-    let tree = scratch.tree();
-    fs::create_dir_all(tree.join("nested")).unwrap();
-    fs::write(tree.join("nested/b.txt"), b"beta").unwrap();
-    fs::write(tree.join("a.txt"), b"alpha").unwrap();
-    let manifest = scratch.0.join("snapshot.txt");
-    let tree_s = tree.to_str().unwrap();
-    let manifest_s = manifest.to_str().unwrap();
-
-    assert!(run(&["manifest", tree_s, "-o", manifest_s]).status.success());
-    let listed = ok_text(&run(&["manifest", tree_s]));
-    let paths: Vec<&str> = listed.lines().filter_map(|line| line.split('\t').nth(2)).collect();
-    assert_eq!(paths, vec!["a.txt", "nested/b.txt"]);
-
-    let verified = ok_text(&run(&["verify", tree_s, manifest_s]));
-    assert!(verified.contains("matched=2"));
-    assert!(verified.contains("OK: tree matches the manifest"));
+    let chart = scratch.chart("grid 5 1\nwind 0 0\n");
+    let out = ok_text(&run(&["route", &chart, "--from", "0,0", "--to", "4,0"]));
+    assert!(out.contains("steps E E E E"));
+    assert!(out.contains("time 400 units"));
+    assert!(out.contains("(0,0) -> (1,0) -> (2,0) -> (3,0) -> (4,0)"));
 }
 
 #[test]
-fn verify_exits_one_and_names_each_difference() {
+fn wind_changes_time_and_ascii_marks_the_route() {
     let scratch = Scratch::new();
-    let tree = scratch.tree();
-    fs::create_dir_all(&tree).unwrap();
-    fs::write(tree.join("same.txt"), b"stable").unwrap();
-    fs::write(tree.join("edit.txt"), b"before").unwrap();
-    fs::write(tree.join("gone.txt"), b"bye").unwrap();
-    let manifest = scratch.0.join("snapshot.txt");
-    let tree_s = tree.to_str().unwrap();
-    let manifest_s = manifest.to_str().unwrap();
-    assert!(run(&["manifest", tree_s, "-o", manifest_s]).status.success());
+    let chart = scratch.chart("grid 3 1\nwind 1 0\n");
+    let out = ok_text(&run(&[
+        "route", &chart, "--from", "0,0", "--to", "2,0", "--ascii",
+    ]));
+    assert!(out.contains("time 166 units"));
+    let ascii = out.lines().last().unwrap();
+    assert_eq!(ascii, "SoG");
+}
 
-    fs::remove_file(tree.join("gone.txt")).unwrap();
-    fs::write(tree.join("edit.txt"), b"after").unwrap();
-    fs::write(tree.join("new.txt"), b"added").unwrap();
-
-    let output = run(&["verify", tree_s, manifest_s]);
+#[test]
+fn unreachable_goal_exits_one() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 3 3\nwind 0 0\nland 1 0\nland 1 1\nland 1 2\n");
+    let output = run(&["route", &chart, "--from", "0,1", "--to", "2,1"]);
     assert_eq!(output.status.code(), Some(1));
-    let text = String::from_utf8(output.stdout).unwrap();
-    assert!(text.contains("matched=1"));
-    assert!(text.contains("MISSING  gone.txt"));
-    assert!(text.contains("CHANGED  edit.txt"));
-    assert!(text.contains("ADDED    new.txt"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("NO ROUTE"));
 }
 
 #[test]
-fn excludes_are_honoured_by_both_commands() {
-    let scratch = Scratch::new();
-    let tree = scratch.tree();
-    fs::create_dir_all(tree.join("ignored")).unwrap();
-    fs::write(tree.join("ignored/big.bin"), b"x").unwrap();
-    fs::write(tree.join("keep.txt"), b"y").unwrap();
-    let manifest = scratch.0.join("snapshot.txt");
-    let tree_s = tree.to_str().unwrap();
-    let manifest_s = manifest.to_str().unwrap();
-    let args = ["-e", "ignored"];
-
-    let mut make = vec!["manifest", tree_s];
-    make.extend_from_slice(&args);
-    make.extend_from_slice(&["-o", manifest_s]);
-    assert!(run(&make).status.success());
-    let listed = ok_text(&run(&["manifest", tree_s, "-e", "ignored"]));
-    assert_eq!(listed.lines().count(), 2);
-
-    let mut check = vec!["verify", tree_s, manifest_s];
-    check.extend_from_slice(&args);
-    assert!(ok_text(&run(&check)).contains("OK: tree matches the manifest"));
-}
-
-#[test]
-fn bad_usage_and_missing_files_exit_two_with_a_fix() {
+fn bad_usage_and_bad_charts_exit_two_with_a_fix() {
     let unknown = run(&["fly"]);
     assert_eq!(unknown.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&unknown.stderr).contains("Fix:"));
 
-    let missing = run(&["hash", "definitely-not-a-file"]);
+    let missing = run(&["chart", "definitely-not-a-chart"]);
     assert_eq!(missing.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&missing.stderr).contains("Why:"));
 
-    let bad_manifest = run(&["verify", ".", "definitely-not-a-manifest"]);
-    assert_eq!(bad_manifest.status.code(), Some(2));
+    let scratch = Scratch::new();
+    let broken = scratch.chart("grid 2 2\nwind 0 0\nland 9 9\n");
+    let bad = run(&["route", &broken, "--from", "0,0", "--to", "1,1"]);
+    assert_eq!(bad.status.code(), Some(2));
+
+    let outside = scratch.chart("grid 2 2\nwind 0 0\n");
+    let far = run(&["route", &outside, "--from", "9,9", "--to", "1,1"]);
+    assert_eq!(far.status.code(), Some(2));
 }
 
 #[test]
 fn help_and_version_are_cheap_and_explicit() {
     let help = ok_text(&run(&["--help"]));
-    assert!(help.contains("trireme hash <file>"));
+    assert!(help.contains("TRIREME-CHART v1"));
     let version = ok_text(&run(&["--version"]));
     assert!(version.starts_with("trireme "));
 }

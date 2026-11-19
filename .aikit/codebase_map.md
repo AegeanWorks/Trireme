@@ -8,9 +8,9 @@
 ## 📊 Codebase Metrics
 - **Total Python Modules**: `2`
 - **Total Classes**: `0`
-- **Total Top-Level Functions**: `2`
+- **Total Top-Level Functions**: `3`
 - **Total Class Methods**: `0`
-- **Total Source Lines**: `50`
+- **Total Source Lines**: `80`
 
 ## 🧭 Map Coverage
 - **Indexed**: python (`2` module(s))
@@ -25,11 +25,12 @@
 ### [`demo.py`](demo.py)
 > *Headless scripted drive: deterministic WORLD-DELTA lines, no input, exits 0.*
 
-**Size**: `43` lines
+**Size**: `73` lines
 
 **Functions:**
 - `def _parse_seed(argv)`
-- `def _snapshot(seed)`
+- `def _chart(seed)`
+- `def _route(seed)`
 
 ---
 
