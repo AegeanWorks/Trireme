@@ -10,11 +10,11 @@
 - **Total Classes**: `0`
 - **Total Top-Level Functions**: `3`
 - **Total Class Methods**: `0`
-- **Total Source Lines**: `80`
+- **Total Source Lines**: `85`
 
 ## 🧭 Map Coverage
 - **Indexed**: python (`2` module(s))
-- **Not indexed by this map**: rust (`6` file(s))
+- **Not indexed by this map**: javascript (`1` file(s)), rust (`8` file(s))
 
 > Only Python symbols are catalogued. A language above is reported as not indexed, never as verified by this map.
 
@@ -37,6 +37,6 @@
 ### [`inventory.py`](inventory.py)
 > *Project-owned UI inventory: one `kind|name|locator` line per control.*
 
-**Size**: `7` lines
+**Size**: `12` lines
 
 ---

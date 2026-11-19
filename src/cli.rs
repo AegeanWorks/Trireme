@@ -2,9 +2,12 @@
 //! global state, and explicit exit codes (0 ok, 1 no route, 2 usage/IO).
 
 use std::fs;
+use std::net::TcpListener;
+use std::path::PathBuf;
 
 use crate::chart;
 use crate::router::{find_route, render_ascii};
+use crate::web;
 
 const HELP: &str = "\
 trireme — offline sailing route planner for small sea charts
@@ -12,6 +15,7 @@ trireme — offline sailing route planner for small sea charts
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii]
   trireme chart <chart>
+  trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
 
 CHART:
@@ -43,6 +47,7 @@ pub fn run(args: &[String]) -> i32 {
         }
         Some("route") => cmd_route(&args[1..]),
         Some("chart") => cmd_chart(&args[1..]),
+        Some("serve") => cmd_serve(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
             "Trireme only plans routes and describes charts.",
@@ -201,5 +206,55 @@ fn cmd_chart(args: &[&str]) -> i32 {
     println!("wind ({},{})", sea.wind.dx, sea.wind.dy);
     println!("land {}", sea.land.len());
     println!("currents {}", sea.currents.len());
+    0
+}
+
+fn cmd_serve(args: &[&str]) -> i32 {
+    let mut port = 7878u16;
+    let mut project_dir: Option<&str> = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index] {
+            "--port" => {
+                index += 1;
+                match args.get(index).and_then(|value| value.parse::<u16>().ok()) {
+                    Some(value) if value > 0 => port = value,
+                    _ => return fail("--port needs a number from 1 to 65535", "The server binds one TCP port.", "Use: trireme serve --port 7878"),
+                }
+            }
+            "--project" => {
+                index += 1;
+                match args.get(index) {
+                    Some(value) => project_dir = Some(value),
+                    None => return fail("--project needs a directory", "Static files are read from DIR/web.", "Use: trireme serve --project ."),
+                }
+            }
+            other => {
+                return fail(
+                    &format!("unknown option '{other}'"),
+                    "serve accepts only --port and --project.",
+                    "Use: trireme serve [--port N] [--project DIR]",
+                )
+            }
+        }
+        index += 1;
+    }
+
+    let root = match project_dir {
+        Some(dir) => PathBuf::from(dir),
+        None => std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+    };
+    let listener = match TcpListener::bind(("127.0.0.1", port)) {
+        Ok(listener) => listener,
+        Err(err) => {
+            return fail(
+                &format!("cannot bind 127.0.0.1:{port}: {err}"),
+                "The browser UI needs a free loopback port.",
+                "Pick another port with --port, or stop the process holding this one.",
+            )
+        }
+    };
+    println!("Trireme UI: http://127.0.0.1:{port}/ (Ctrl+C to stop)");
+    web::serve(listener, &root);
     0
 }

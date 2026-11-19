@@ -19,6 +19,11 @@ You describe a grid of water, land, a prevailing wind and optional local current
   cargo run -- route examples/aegean.txt --from 0,2 --to 7,0 --ascii
   # exit 0 = route found, 1 = unreachable, 2 = bad chart or arguments
   ```
+- **Browser UI** (no dependencies, no build step):
+  ```bash
+  cargo run -- serve --project .     # http://127.0.0.1:7878/
+  ```
+  Edit the chart and endpoints in the left panel, press **Plan route**, and read the headings, waypoints and ASCII map on the right. The page calls `/api/route`, which uses the same parser and router as the CLI.
 
 ### 🛠️ Commands
 
@@ -26,6 +31,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
 |---|---|
 | `trireme chart <chart>` | Describe the grid, wind, land and current count. |
 | `trireme route <chart> --from X,Y --to X,Y [--ascii]` | Print the headings, waypoints, time in integer units and cells explored. |
+| `trireme serve [--port N] [--project DIR]` | Serve the browser UI from `DIR/web` on loopback (default `7878`). |
 | `trireme help` / `trireme --version` | Show usage or the version. |
 
 ### 🗺️ Chart format
@@ -59,14 +65,20 @@ trireme/
 ├── Cargo.lock                <- pinned versions for reproducible builds
 ├── examples/
 │   └── aegean.txt            <- small example chart used in the quick start
+├── web/
+│   ├── index.html            <- chart editor and route results surface
+│   ├── app.js                <- posts a query and renders the JSON answer
+│   └── styles.css            <- theme variables and layout
 ├── src/
 │   ├── main.rs               <- process entry point and exit code
 │   ├── lib.rs                <- public library surface
 │   ├── cli.rs                <- argument parsing and human-readable output
 │   ├── chart.rs              <- chart format, parsing and validation
-│   └── router.rs             <- Dijkstra routing, integer costs and ASCII map
+│   ├── router.rs             <- Dijkstra routing, integer costs and ASCII map
+│   └── web.rs                <- std-only HTTP server and JSON route API
 ├── tests/
-│   └── cli.rs                <- end-to-end proofs through the real binary
+│   ├── cli.rs                <- end-to-end proofs through the real binary
+│   └── web.rs                <- loopback proof of the running server
 ├── inventory.py              <- AI-compat inventory: kind|name|locator lines (ADR-315)
 ├── demo.py                   <- AI-compat scripted drive: WORLD-DELTA lines (ADR-315)
 ├── README.md

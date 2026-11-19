@@ -21,9 +21,11 @@
   "scratch_paths": [],
   "gate_outputs": [],
   "created": "2026-11-19",
-  "has_ui": false,
-  "ui_kind": "library",
-  "ui_evidence": [],
+  "has_ui": true,
+  "ui_kind": "web",
+  "ui_evidence": [
+    "web/index.html"
+  ],
   "ui_checked_at": "2026-11-19",
   "ui_source": "detected"
 }

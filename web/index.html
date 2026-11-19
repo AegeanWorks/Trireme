@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trireme — route planner</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="mark" aria-hidden="true">&#9875;</div>
+    <div>
+      <h1>Trireme</h1>
+      <p class="tagline">Offline sailing route planner</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="chart-title">
+      <h2 id="chart-title">Sea chart</h2>
+      <p class="hint">Grid, wind, land and local currents. See <code>trireme --help</code> for the format.</p>
+      <label class="field">
+        <span>Chart</span>
+        <textarea id="chart" rows="10" spellcheck="false">TRIREME-CHART v1
+grid 8 4
+wind 1 0
+land 3 2
+land 3 1
+land 4 1
+current 5 2 0 -1
+current 6 1 -1 0</textarea>
+      </label>
+      <div class="endpoints">
+        <label class="field">
+          <span>From (X,Y)</span>
+          <input id="from" value="0,2" spellcheck="false">
+        </label>
+        <label class="field">
+          <span>To (X,Y)</span>
+          <input id="to" value="7,0" spellcheck="false">
+        </label>
+      </div>
+      <button id="plan" type="button">Plan route</button>
+      <p class="hint">Tip: press Ctrl+Enter to plan.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="result-title">
+      <h2 id="result-title">Route</h2>
+      <p id="status" class="status" role="status" aria-live="polite">Ready.</p>
+      <div class="metrics">
+        <div><span class="metric-label">Time</span><strong id="time">&mdash;</strong></div>
+        <div><span class="metric-label">Steps</span><strong id="steps-count">&mdash;</strong></div>
+        <div><span class="metric-label">Explored</span><strong id="explored">&mdash;</strong></div>
+      </div>
+      <label class="field">
+        <span>Headings</span>
+        <output id="headings" class="readout">&mdash;</output>
+      </label>
+      <label class="field">
+        <span>Waypoints</span>
+        <output id="waypoints" class="readout">&mdash;</output>
+      </label>
+      <label class="field">
+        <span>Map</span>
+        <pre id="map" class="map" aria-label="Route map">&mdash;</pre>
+      </label>
+      <p class="legend"><b>S</b> start &middot; <b>G</b> goal &middot; <b>o</b> route &middot; <b>#</b> land &middot; <b>~</b> water</p>
+    </section>
+  </main>
+
+  <footer>Trireme 0.2.0 &middot; local-first &middot; no dependencies &middot; no network calls beyond this page</footer>
+  <script src="/app.js"></script>
+</body>
+</html>
