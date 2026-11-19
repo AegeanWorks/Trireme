@@ -1109,6 +1109,59 @@ function formatChartForClipboard(text, from, to) {
   );
 }
 
+function historySummary(entries) {
+  const list = Array.isArray(entries)
+    ? entries.filter((item) => item && typeof item.time === "number")
+    : [];
+  if (list.length === 0) {
+    return {
+      count: 0,
+      totalSteps: 0,
+      uniqueCharts: 0,
+      fastest: null,
+      slowest: null,
+      average: null,
+      oldest: null,
+      newest: null,
+    };
+  }
+  const times = list.map((item) => item.time);
+  const stamps = list
+    .map((item) => item.at)
+    .filter((value) => typeof value === "number");
+  return {
+    count: list.length,
+    totalSteps: list.reduce(
+      (sum, item) => sum + (typeof item.steps === "number" ? item.steps : 0),
+      0
+    ),
+    uniqueCharts: new Set(list.map((item) => item.chart || "")).size,
+    fastest: Math.min(...times),
+    slowest: Math.max(...times),
+    average: Math.round(times.reduce((a, b) => a + b, 0) / list.length),
+    oldest: stamps.length ? Math.min(...stamps) : null,
+    newest: stamps.length ? Math.max(...stamps) : null,
+  };
+}
+
+function formatHistorySummary(summary) {
+  if (!summary || typeof summary.count !== "number") {
+    throw new Error("No history summary to format.");
+  }
+  if (summary.count === 0) {
+    return "No saved plans yet.";
+  }
+  const date = (value) =>
+    value === null ? "\u2014" : new Date(value).toISOString();
+  return [
+    "Plans: " + summary.count + " \u00b7 total steps: " + summary.totalSteps +
+      " \u00b7 unique charts: " + summary.uniqueCharts,
+    "Time: fastest " + summary.fastest + ", slowest " + summary.slowest +
+      ", average " + summary.average + " units",
+    "Range: " + date(summary.oldest) + " \u2192 " + date(summary.newest),
+  ].join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1128,6 +1181,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatImportSummary,
     filterHistory,
     historyFilterSummary,
+    historySummary,
+    formatHistorySummary,
     sortHistory,
     filterLocalPresets,
     presetFilterSummary,
@@ -1240,6 +1295,7 @@ if (typeof document !== "undefined") {
   const compareCalm = document.getElementById("compare-calm");
   const compareDelta = document.getElementById("compare-delta");
   const historyList = document.getElementById("history-list");
+  const historySummaryOutput = document.getElementById("history-summary");
   const historyFilter = document.getElementById("history-filter");
   const historySort = document.getElementById("history-sort");
   const historyFilterStatus = document.getElementById("history-filter-status");
@@ -1663,6 +1719,7 @@ if (typeof document !== "undefined") {
 
   function renderHistory() {
     const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    historySummaryOutput.textContent = formatHistorySummary(historySummary(entries));
     const visible = sortHistory(
       filterHistory(entries, historyFilter.value),
       historySort.value

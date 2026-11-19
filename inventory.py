@@ -63,6 +63,7 @@ if __name__ == "__main__":
     print('button|apply-import|web/index.html#apply-import')
     print('button|cancel-import|web/index.html#cancel-import')
     print('output|history-list|web/index.html#history-list')
+    print('output|history-summary|web/index.html#history-summary')
     print('input|history-filter|web/index.html#history-filter')
     print('output|history-filter-status|web/index.html#history-filter-status')
     print('select|history-sort|web/index.html#history-sort')

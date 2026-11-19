@@ -38,6 +38,8 @@ const {
   formatImportSummary,
   filterHistory,
   historyFilterSummary,
+  historySummary,
+  formatHistorySummary,
   sortHistory,
   LOCAL_PRESETS_KEY,
   LOCAL_PRESET_LIMIT,
@@ -120,7 +122,8 @@ test("the page declares every control the script binds", () => {
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
-    "history-title", "clear-history", "export-history-csv", "export-history", "import-history",
+    "history-title", "history-summary", "clear-history", "export-history-csv",
+    "export-history", "import-history",
     "history-file", "history-list", "history-filter", "history-sort",
     "history-filter-status",
     "import-preview", "import-preview-text",
@@ -883,6 +886,32 @@ test("clipboard chart keeps its text and notes the endpoints", () => {
   assert.match(formatHelpText(), /Copy chart/);
 });
 
+test("history summary aggregates plans, time and charts", () => {
+  const chartA = "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n";
+  const chartB = "TRIREME-CHART v1\ngrid 6 1\nwind 1 0\n";
+  const entries = [
+    historyEntry({ time: 200, steps: ["E"] }, { chart: chartA, from: [0, 0], to: [1, 0] }, 1000),
+    historyEntry({ time: 400, steps: ["E", "E"] }, { chart: chartA, from: [0, 0], to: [2, 0] }, 2000),
+    historyEntry({ time: 600, steps: ["E", "E", "E"] }, { chart: chartB, from: [0, 0], to: [3, 0] }, 3000),
+  ];
+  const summary = historySummary(entries);
+  assert.equal(summary.count, 3);
+  assert.equal(summary.totalSteps, 6);
+  assert.equal(summary.uniqueCharts, 2);
+  assert.equal(summary.fastest, 200);
+  assert.equal(summary.slowest, 600);
+  assert.equal(summary.average, 400);
+  assert.equal(
+    formatHistorySummary(summary),
+    "Plans: 3 \u00b7 total steps: 6 \u00b7 unique charts: 2\n" +
+      "Time: fastest 200, slowest 600, average 400 units\n" +
+      "Range: 1970-01-01T00:00:01.000Z \u2192 1970-01-01T00:00:03.000Z"
+  );
+  assert.equal(formatHistorySummary(historySummary([])), "No saved plans yet.");
+  assert.equal(formatHistorySummary(historySummary(null)), "No saved plans yet.");
+  assert.throws(() => formatHistorySummary(null), /No history summary/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -950,6 +979,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-chart"\)/);
   assert.match(source, /copyChartButton\.addEventListener\("click", copyCurrentChart\)/);
   assert.match(source, /formatChartForClipboard\(chart\.value, from\.value, to\.value\)/);
+  assert.match(source, /getElementById\("history-summary"\)/);
+  assert.match(source, /formatHistorySummary\(historySummary\(entries\)\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
