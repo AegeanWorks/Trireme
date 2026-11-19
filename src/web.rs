@@ -3,6 +3,7 @@
 //! It serves three static files from `web/` and one JSON endpoint that calls
 //! the same chart parser and router as the CLI. No framework, no crates.
 
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
@@ -341,9 +342,60 @@ pub fn api_chart_diff(body: &str) -> String {
 }
 
 /// Validates an exported `trireme.inspection/1` document and returns its
+/// True when `raw` is a syntactically valid JSON array value.
+fn is_json_array(raw: &str) -> bool {
+    let text = raw.trim();
+    if !text.starts_with('[') || !text.ends_with(']') {
+        return false;
+    }
+    json::fields(&format!("{{\"value\":{text}}}")).is_ok()
+}
+
+/// Wrap a flat `inspect --json` report into a versioned inspection document.
+fn wrap_flat_inspection(document: &HashMap<String, String>) -> Result<String, String> {
+    if !document.contains_key("ok") || !document.contains_key("valid") {
+        return Err("Inspection file has no schema.".to_string());
+    }
+    let valid = document.get("valid").map(|value| value.trim()).unwrap_or("");
+    let number = |key: &str, fallback: &str| {
+        document.get(key).map(|value| value.trim()).unwrap_or(fallback).to_string()
+    };
+    let inspection = match valid {
+        "true" => {
+            let fingerprint = document
+                .get("fingerprint")
+                .map(|value| value.trim())
+                .ok_or_else(|| "Valid inspection has no fingerprint.".to_string())?;
+            format!(
+                "{{\"valid\":true,\"fingerprint\":{fingerprint},\"stats\":{{\"width\":{},\"height\":{},\"cells\":{},\"land\":{},\"currents\":{},\"wind\":{}}}}}",
+                number("width", "0"),
+                number("height", "0"),
+                number("cells", "0"),
+                number("land", "0"),
+                number("currents", "0"),
+                number("wind", "[0,0]")
+            )
+        }
+        "false" => {
+            let issues = document.get("issues").map(|value| value.trim()).unwrap_or("[]");
+            format!("{{\"valid\":false,\"issues\":{issues}}}")
+        }
+        _ => return Err("Inspection 'valid' must be true or false.".to_string()),
+    };
+    Ok(format!(
+        "{{\"schema\":\"trireme.inspection/1\",\"generatedBy\":\"trireme-cli\",\"inspection\":{inspection}}}"
+    ))
+}
+
 /// canonical text for storage.
 pub fn inspection_from_document(raw: &str) -> Result<String, String> {
     let document = json::fields(raw).map_err(|_| "Inspection file is not valid JSON.".to_string())?;
+    if !document.contains_key("schema") {
+        // A plain `inspect --json` report has no schema. Wrap its flat fields into
+        // the versioned inspection shape so the two commands round-trip (RF-3).
+        let wrapped = wrap_flat_inspection(&document)?;
+        return inspection_from_document(&wrapped);
+    }
     let schema = document
         .get("schema")
         .and_then(|value| json::string_value(value).ok())
@@ -379,8 +431,11 @@ pub fn inspection_from_document(raw: &str) -> Result<String, String> {
             }
         }
         "false" => {
-            if !inspection.contains("\"issues\"") {
-                return Err("Invalid inspection has no issues array.".to_string());
+            let issues = fields
+                .get("issues")
+                .ok_or_else(|| "Invalid inspection has no issues array.".to_string())?;
+            if !is_json_array(issues) {
+                return Err("Invalid inspection has a malformed issues array.".to_string());
             }
         }
         _ => return Err("Inspection 'valid' must be true or false.".to_string()),
@@ -697,6 +752,23 @@ mod tests {
         assert!(inspection_from_document("nope").is_err());
         assert!(inspection_from_document("{\"schema\":\"other\"}").is_err());
         assert!(inspection_from_document("{\"schema\":\"trireme.inspection/1\"}").is_err());
+        // A non-array field named with the word "issues" is not an issues array.
+        let fake_issues = "{\"schema\":\"trireme.inspection/1\",\"inspection\":{\"valid\":false,\"note\":\"issues\"}}";
+        assert!(inspection_from_document(fake_issues).is_err());
+    }
+
+    #[test]
+    fn flat_inspect_report_round_trips_through_import() {
+        let text = "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n";
+        let flat = inspect_json(text).unwrap();
+        let canonical = inspection_from_document(&flat).unwrap();
+        assert!(canonical.contains("\"schema\":\"trireme.inspection/1\""));
+        assert!(canonical.contains("\"fingerprint\":"));
+        assert_eq!(inspection_from_document(&canonical).unwrap(), canonical);
+        let invalid = inspect_json("TRIREME-CHART v1\nwind 2 0\n").unwrap();
+        let wrapped = inspection_from_document(&invalid).unwrap();
+        assert!(wrapped.contains("\"valid\":false"));
+        assert!(wrapped.contains("\"issues\":["));
     }
 
     #[test]
