@@ -33,6 +33,7 @@ if __name__ == "__main__":
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
     print('button|swap-endpoints|web/index.html#swap-endpoints')
+    print('button|copy-chart|web/index.html#copy-chart')
     print('button|plan|web/index.html#plan')
     print('button|clear-editor|web/index.html#clear-editor')
     print('button|compare|web/index.html#compare')

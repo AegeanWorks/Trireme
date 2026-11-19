@@ -72,6 +72,7 @@ const {
   historyCsvFilename,
   chartStats,
   formatChartStats,
+  formatChartForClipboard,
   diffCharts,
   formatChartDiff,
   formatDiffForClipboard,
@@ -106,7 +107,7 @@ test("the page declares every control the script binds", () => {
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
-    "chart", "chart-stats", "chart-issues", "from", "to", "swap-endpoints",
+    "chart", "chart-stats", "chart-issues", "from", "to", "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
     "presets-file", "export-presets", "import-presets", "delete-preset",
@@ -870,6 +871,18 @@ test("swapping endpoints validates and normalizes both coordinates", () => {
   assert.match(formatHelpText(), /Swap endpoints/);
 });
 
+test("clipboard chart keeps its text and notes the endpoints", () => {
+  const chartText = "TRIREME-CHART v1\r\ngrid 4 1\r\nwind 0 0";
+  assert.equal(
+    formatChartForClipboard(chartText, "0,0", "3,0"),
+    "# Trireme chart from (0,0) to (3,0)\n" +
+      "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n"
+  );
+  assert.throws(() => formatChartForClipboard("grid 2 2\nwind 0 0\n", "0,0", "1,1"), /TRIREME-CHART/);
+  assert.throws(() => formatChartForClipboard(chartText, "bad", "1,1"), /X,Y/);
+  assert.match(formatHelpText(), /Copy chart/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -934,6 +947,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("swap-endpoints"\)/);
   assert.match(source, /swapEndpointsButton\.addEventListener\("click", swapEditorEndpoints\)/);
   assert.match(source, /swapEndpoints\(from\.value, to\.value\)/);
+  assert.match(source, /getElementById\("copy-chart"\)/);
+  assert.match(source, /copyChartButton\.addEventListener\("click", copyCurrentChart\)/);
+  assert.match(source, /formatChartForClipboard\(chart\.value, from\.value, to\.value\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);

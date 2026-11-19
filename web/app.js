@@ -21,6 +21,7 @@ const HELP_SECTIONS = {
     ["Plan route", "Compute and show the route"],
     ["Clear editor", "Reset chart and endpoints to the default preset"],
     ["Swap endpoints", "Exchange the from and to coordinates"],
+    ["Copy chart", "Copy the chart text with its endpoints noted"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
@@ -1094,6 +1095,20 @@ function swapEndpoints(from, to) {
   };
 }
 
+function formatChartForClipboard(text, from, to) {
+  const clean = validateChartText(text);
+  const start = point(from);
+  const goal = point(to);
+  return (
+    "# Trireme chart from (" +
+    start.join(",") +
+    ") to (" +
+    goal.join(",") +
+    ")\n" +
+    (clean.endsWith("\n") ? clean : clean + "\n")
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1155,6 +1170,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartIssues,
     chartStats,
     formatChartStats,
+    formatChartForClipboard,
     diffCharts,
     formatChartDiff,
     formatDiffForClipboard,
@@ -1207,6 +1223,7 @@ if (typeof document !== "undefined") {
   const duplicatePresetButton = document.getElementById("duplicate-preset");
   const file = document.getElementById("file");
   const swapEndpointsButton = document.getElementById("swap-endpoints");
+  const copyChartButton = document.getElementById("copy-chart");
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const status = document.getElementById("status");
@@ -1272,6 +1289,25 @@ if (typeof document !== "undefined") {
       to.value = swapped.to;
       reset();
       setState("Endpoints swapped.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  async function copyCurrentChart() {
+    try {
+      const text = formatChartForClipboard(chart.value, from.value, to.value);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Chart copied to the clipboard.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -2015,6 +2051,7 @@ if (typeof document !== "undefined") {
   document.getElementById("plan").addEventListener("click", plan);
   document.getElementById("clear-editor").addEventListener("click", clearEditor);
   swapEndpointsButton.addEventListener("click", swapEditorEndpoints);
+  copyChartButton.addEventListener("click", copyCurrentChart);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);
   document.getElementById("import").addEventListener("click", importChart);
