@@ -88,6 +88,25 @@ fn wind_changes_time_and_ascii_marks_the_route() {
 }
 
 #[test]
+fn compare_uses_the_calm_baseline_for_same_endpoints() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 5 1\nwind 1 0\n");
+    let out = ok_text(&run(&["compare", &chart, "--from", "0,0", "--to", "4,0"]));
+    assert!(out.contains("TRIREME COMPARISON"));
+    assert!(out.contains("wind  332 units"));
+    assert!(out.contains("calm  400 units"));
+    assert!(out.contains("Saving: 68 units (17% faster)."));
+    let json = ok_text(&run(&["compare", &chart, "--from", "0,0", "--to", "4,0", "--json"]));
+    assert!(json.contains("\"ok\":true"));
+    assert!(json.contains("\"saved\":68"));
+    assert!(json.contains("\"wind\":{"));
+    assert!(json.contains("\"calm\":{"));
+    let blocked = scratch.chart("grid 3 3\nwind 0 0\nland 1 0\nland 1 1\nland 1 2\n");
+    let failed = run(&["compare", &blocked, "--from", "0,1", "--to", "2,1"]);
+    assert_eq!(failed.status.code(), Some(1));
+}
+
+#[test]
 fn chart_calm_zeroes_wind_and_currents_for_the_same_geography() {
     let scratch = Scratch::new();
     let chart = scratch.chart("# note\ngrid 4 3\nwind 1 -1\nland 2 2\ncurrent 1 1 0 1\n");

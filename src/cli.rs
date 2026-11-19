@@ -16,6 +16,7 @@ trireme — offline sailing route planner for small sea charts
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
   trireme chart <chart> [--json] [--calm]
+  trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
 
@@ -48,6 +49,7 @@ pub fn run(args: &[String]) -> i32 {
         }
         Some("route") => cmd_route(&args[1..]),
         Some("chart") => cmd_chart(&args[1..]),
+        Some("compare") => cmd_compare(&args[1..]),
         Some("serve") => cmd_serve(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
@@ -261,6 +263,134 @@ fn cmd_chart(args: &[&str]) -> i32 {
     println!("wind ({},{})", sea.wind.dx, sea.wind.dy);
     println!("land {}", sea.land.len());
     println!("currents {}", sea.currents.len());
+    0
+}
+
+fn cmd_compare(args: &[&str]) -> i32 {
+    let mut path: Option<&str> = None;
+    let mut from: Option<&str> = None;
+    let mut to: Option<&str> = None;
+    let mut json_output = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index] {
+            "--from" | "--to" => {
+                let flag = args[index];
+                index += 1;
+                match args.get(index) {
+                    Some(value) if flag == "--from" => from = Some(value),
+                    Some(value) => to = Some(value),
+                    None => {
+                        return fail(&format!("{flag} needs X,Y"), "Both endpoints are required.", "Use --from X,Y --to X,Y.")
+                    }
+                }
+            }
+            "--json" => json_output = true,
+            other if other.starts_with('-') => {
+                return fail(
+                    &format!("unknown option '{other}'"),
+                    "compare accepts --from, --to and --json.",
+                    "Use: trireme compare <chart> --from X,Y --to X,Y [--json]",
+                )
+            }
+            other if path.is_none() => path = Some(other),
+            other => {
+                return fail(
+                    &format!("unexpected argument '{other}'"),
+                    "compare takes exactly one chart file.",
+                    "Use: trireme compare <chart> --from X,Y --to X,Y [--json]",
+                )
+            }
+        }
+        index += 1;
+    }
+    let (path, from, to) = match (path, from, to) {
+        (Some(path), Some(from), Some(to)) => (path, from, to),
+        _ => {
+            return fail(
+                "compare needs a chart, --from and --to",
+                "A comparison is a query against the same geography under two flows.",
+                "Use: trireme compare <chart> --from X,Y --to X,Y [--json]",
+            )
+        }
+    };
+    let (from, to) = match (parse_point(from, "--from"), parse_point(to, "--to")) {
+        (Ok(from), Ok(to)) => (from, to),
+        (Err(err), _) | (_, Err(err)) => {
+            return fail(&err, "Endpoints are grid coordinates.", "Write them as X,Y, for example --from 0,0 --to 4,3.")
+        }
+    };
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            return fail(
+                &format!("cannot read chart '{path}': {err}"),
+                "A comparison needs the original chart text.",
+                "Check the path and permissions, then retry.",
+            )
+        }
+    };
+    let still_text = match chart::calm(&raw) {
+        Ok(text) => text,
+        Err(err) => return fail(&err, "The chart must be valid before it can be compared.", "Fix the named chart problem and retry."),
+    };
+    let sea = match chart::parse(&raw) {
+        Ok(sea) => sea,
+        Err(err) => return fail(&err, "The chart must be valid before it can be compared.", "Fix the named chart problem and retry."),
+    };
+    let calm_sea = match chart::parse(&still_text) {
+        Ok(sea) => sea,
+        Err(err) => return fail(&err, "The calm baseline could not be parsed.", "Check the chart format and retry."),
+    };
+    let (wind, still) = match (find_route(&sea, from, to), find_route(&calm_sea, from, to)) {
+        (Ok(Some(wind)), Ok(Some(still))) => (wind, still),
+        (Ok(None), _) | (_, Ok(None)) => {
+            let message = format!(
+                "NO ROUTE: ({},{}) cannot reach ({},{}) on this chart",
+                from.0, from.1, to.0, to.1
+            );
+            if json_output {
+                println!("{}", web::error_json(&message));
+            } else {
+                println!("{message}");
+            }
+            return 1;
+        }
+        (Err(err), _) | (_, Err(err)) => {
+            return fail(&err, "Endpoints must be inside the chart.", "Check the grid size with 'trireme chart <chart>'.")
+        }
+    };
+    if json_output {
+        println!("{}", web::comparison_json(from, to, &wind, &still));
+        return 0;
+    }
+    let saved = still.time as i64 - wind.time as i64;
+    let percent = if still.time == 0 {
+        0
+    } else {
+        ((saved.abs() as f64 / still.time as f64) * 100.0).round() as i64
+    };
+    println!("TRIREME COMPARISON");
+    println!("from ({},{}) to ({},{})", from.0, from.1, to.0, to.1);
+    println!(
+        "wind  {} units / {} steps / {} cells",
+        wind.time,
+        wind.steps.len(),
+        wind.explored
+    );
+    println!(
+        "calm  {} units / {} steps / {} cells",
+        still.time,
+        still.steps.len(),
+        still.explored
+    );
+    if saved == 0 {
+        println!("No difference ({} units).", wind.time);
+    } else if saved > 0 {
+        println!("Saving: {saved} units ({percent}% faster).");
+    } else {
+        println!("Cost: {} units ({percent}% slower).", -saved);
+    }
     0
 }
 

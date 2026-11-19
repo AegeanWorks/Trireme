@@ -195,6 +195,26 @@ pub fn route_json(from: (u32, u32), to: (u32, u32), route: &Route, map: &str) ->
     )
 }
 
+/// A machine-readable wind-vs-calm comparison for the CLI.
+pub fn comparison_json(
+    from: (u32, u32),
+    to: (u32, u32),
+    wind: &Route,
+    calm: &Route,
+) -> String {
+    let saved = calm.time as i64 - wind.time as i64;
+    format!(
+        "{{\"ok\":true,\"from\":[{},{}],\"to\":[{},{}],\"saved\":{},\"wind\":{},\"calm\":{}}}",
+        from.0,
+        from.1,
+        to.0,
+        to.1,
+        saved,
+        route_json(from, to, wind, ""),
+        route_json(from, to, calm, "")
+    )
+}
+
 /// A stable error document; never a bare string.
 pub fn error_json(message: &str) -> String {
     format!("{{\"ok\":false,\"error\":{}}}", json::quote(message))
