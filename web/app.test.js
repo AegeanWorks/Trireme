@@ -51,6 +51,9 @@ const {
   parsePresetsExport,
   mergePresetFiles,
   removeLocalPreset,
+  LOCAL_DATA_KEYS,
+  resetPlan,
+  formatResetSummary,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -76,7 +79,7 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
-    "open-help", "help-panel", "help-text", "close-help",
+    "open-help", "help-panel", "help-text", "close-help", "reset-local",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
     "file", "plan", "compare", "save",
@@ -568,6 +571,25 @@ test("deleting a preset removes it by name without mutating the list", () => {
   assert.throws(() => removeLocalPreset(original, "bad/name"));
 });
 
+test("reset plan names the local storage keys deterministically", () => {
+  assert.deepEqual(LOCAL_DATA_KEYS, [
+    "trireme.chart",
+    "trireme.from",
+    "trireme.to",
+    "trireme.presets",
+    "trireme.history",
+  ]);
+  assert.deepEqual(resetPlan(), LOCAL_DATA_KEYS);
+  assert.deepEqual(resetPlan(["a", "b", "a", "", null]), ["a", "b"]);
+  assert.deepEqual(resetPlan(null), LOCAL_DATA_KEYS);
+  assert.equal(
+    formatResetSummary(),
+    "Reset 5 local keys: trireme.chart, trireme.from, trireme.to, trireme.presets, trireme.history."
+  );
+  assert.equal(formatResetSummary(["x"]), "Reset 1 local keys: x.");
+  assert.match(formatHelpText(), /Reset local data/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -593,6 +615,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /parsePresetsExport\(await picked\.text\(\)\)/);
   assert.match(source, /deletePresetButton\.addEventListener\("click", deleteSelectedPreset\)/);
   assert.match(source, /removeLocalPreset\(storedPresets\(\), name\)/);
+  assert.match(source, /getElementById\("reset-local"\)\.addEventListener\("click", handleResetLocal\)/);
+  assert.match(source, /for \(const key of keys\) \{/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

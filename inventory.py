@@ -51,4 +51,5 @@ if __name__ == "__main__":
     print('panel|help|web/index.html#help-panel')
     print('output|help-text|web/index.html#help-text')
     print('button|close-help|web/index.html#close-help')
+    print('button|reset-local|web/index.html#reset-local')
     print('cli|help|--help')

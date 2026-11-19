@@ -26,6 +26,7 @@ const HELP_SECTIONS = {
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Filter / Sort history", "Search and order saved plans"],
+    ["Reset local data", "Click twice to clear chart, presets and history"],
   ],
 };
 
@@ -550,6 +551,23 @@ function sortHistory(entries, mode) {
 
 const LOCAL_PRESETS_KEY = "trireme.presets";
 const LOCAL_PRESET_LIMIT = 20;
+const LOCAL_DATA_KEYS = [
+  "trireme.chart",
+  "trireme.from",
+  "trireme.to",
+  LOCAL_PRESETS_KEY,
+  HISTORY_KEY,
+];
+
+function resetPlan(keys) {
+  const source = Array.isArray(keys) && keys.length ? keys : LOCAL_DATA_KEYS;
+  return [...new Set(source.filter((key) => typeof key === "string" && key).map(String))];
+}
+
+function formatResetSummary(keys) {
+  const list = resetPlan(keys);
+  return "Reset " + list.length + " local keys: " + list.join(", ") + ".";
+}
 
 function normalizePresetName(raw) {
   const name = String(raw || "").trim().replace(/\s+/g, " ");
@@ -684,6 +702,9 @@ if (typeof module !== "undefined" && module.exports) {
     formatHelpText,
     LOCAL_PRESETS_KEY,
     LOCAL_PRESET_LIMIT,
+    LOCAL_DATA_KEYS,
+    resetPlan,
+    formatResetSummary,
     normalizePresetName,
     buildLocalPreset,
     parseLocalPresets,
@@ -754,6 +775,7 @@ if (typeof document !== "undefined") {
   let lastRoute = null;
   let lastComparison = null;
   let pendingImport = null;
+  let resetArmed = false;
   let chartName = "chart.txt";
 
   function setState(message, kind) {
@@ -775,6 +797,23 @@ if (typeof document !== "undefined") {
 
   function closeHelp() {
     helpPanel.hidden = true;
+  }
+
+  function handleResetLocal() {
+    if (!resetArmed) {
+      resetArmed = true;
+      setState("Click Reset local data again to confirm.", "busy");
+      return;
+    }
+    const keys = resetPlan();
+    for (const key of keys) {
+      localStorage.removeItem(key);
+    }
+    resetArmed = false;
+    renderHistory();
+    renderLocalPresets();
+    reset();
+    setState(formatResetSummary(keys), "good");
   }
 
   function storedPresets() {
@@ -1286,6 +1325,7 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("open-help").addEventListener("click", openHelp);
   document.getElementById("close-help").addEventListener("click", closeHelp);
+  document.getElementById("reset-local").addEventListener("click", handleResetLocal);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !helpPanel.hidden) {
       closeHelp();
