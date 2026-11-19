@@ -9,8 +9,8 @@
       "start": 3,
       "step": 3,
       "stop": null,
-      "stage": 4,
-      "window": 12,
+      "stage": 6,
+      "window": 18,
       "audited_commits": [
         "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
         "4adde7556c1488fce22440d639e86411563d69f8",
@@ -23,16 +23,23 @@
         "c7c93c1493bc262e96f6e31036f741064b31ceb0",
         "c22654e6b314905bbe260977c0f8be88a6cb2154",
         "7d7fba3a3491c78f6c4598504751752a0d4dce61",
-        "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+        "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+        "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+        "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+        "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c",
+        "e79266dc087197801c942bdf7588847edd376f6a",
+        "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+        "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
       ],
       "status": "active",
       "created": "2026-11-19T19:13:01",
-      "updated": "2026-11-19T20:00:47",
+      "updated": "2026-11-19T20:04:20",
       "last_audit": {
         "run": "run-1",
-        "stage": 4,
-        "window": 12,
+        "stage": 6,
+        "window": 18,
         "commits": [
+          "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
           "c22654e6b314905bbe260977c0f8be88a6cb2154",
           "7d7fba3a3491c78f6c4598504751752a0d4dce61",
           "52168771d1c644a58b8bb55321d02a065970e96e",
@@ -44,12 +51,17 @@
           "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
           "e69d45d356ba47187d169adc39fb1ecdfda5c481",
           "c7c93c1493bc262e96f6e31036f741064b31ceb0",
-          "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+          "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+          "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+          "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c",
+          "e79266dc087197801c942bdf7588847edd376f6a",
+          "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+          "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
         ],
         "new_commits": [
-          "c22654e6b314905bbe260977c0f8be88a6cb2154",
-          "7d7fba3a3491c78f6c4598504751752a0d4dce61",
-          "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+          "e79266dc087197801c942bdf7588847edd376f6a",
+          "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+          "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
         ],
         "prior_commits": [
           "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
@@ -60,12 +72,18 @@
           "e69d45d356ba47187d169adc39fb1ecdfda5c481",
           "52168771d1c644a58b8bb55321d02a065970e96e",
           "35d978376c33adb345ed2cb1ac2adf2774894e3b",
-          "c7c93c1493bc262e96f6e31036f741064b31ceb0"
+          "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+          "c22654e6b314905bbe260977c0f8be88a6cb2154",
+          "7d7fba3a3491c78f6c4598504751752a0d4dce61",
+          "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+          "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+          "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+          "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c"
         ],
         "findings": [],
         "repairs": [],
         "counts": {},
-        "reviewed": 8,
+        "reviewed": 10,
         "review": {
           "status": "reviewed",
           "rejected": [],
@@ -73,17 +91,19 @@
             ".aikit/codebase_map.md",
             "README.md",
             "inventory.py",
+            "src/chart.rs",
+            "src/cli.rs",
             "src/web.rs",
+            "tests/cli.rs",
             "tests/web.rs",
             "web/app.js",
-            "web/app.test.js",
-            "web/index.html"
+            "web/app.test.js"
           ],
-          "packet": ".aikit/reforge.reviews/stage-run-1-4-c22654e6b314.md",
+          "packet": ".aikit/reforge.reviews/stage-run-1-6-e79266dc0871.md",
           "redacted": 0,
           "coverage": {
-            "reported": 23,
-            "total": 23,
+            "reported": 35,
+            "total": 35,
             "carried": [],
             "missing": [],
             "unknown": [],
@@ -101,9 +121,9 @@
           "pushed": false,
           "push_error": null,
           "empty": true,
-          "timestamp": "2026-11-19T19:59:42"
+          "timestamp": "2026-11-19T20:02:49"
         },
-        "timestamp": "2026-11-19T19:59:42"
+        "timestamp": "2026-11-19T20:02:49"
       },
       "history": [
         {
@@ -640,13 +660,187 @@
             "timestamp": "2026-11-19T19:59:42"
           },
           "timestamp": "2026-11-19T19:59:42"
+        },
+        {
+          "run": "run-1",
+          "stage": 5,
+          "window": 15,
+          "commits": [
+            "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+            "c22654e6b314905bbe260977c0f8be88a6cb2154",
+            "7d7fba3a3491c78f6c4598504751752a0d4dce61",
+            "52168771d1c644a58b8bb55321d02a065970e96e",
+            "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+            "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+            "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+            "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
+            "4adde7556c1488fce22440d639e86411563d69f8",
+            "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+            "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+            "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+            "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+            "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+            "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c"
+          ],
+          "new_commits": [
+            "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+            "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+            "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c"
+          ],
+          "prior_commits": [
+            "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
+            "4adde7556c1488fce22440d639e86411563d69f8",
+            "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+            "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+            "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+            "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+            "52168771d1c644a58b8bb55321d02a065970e96e",
+            "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+            "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+            "c22654e6b314905bbe260977c0f8be88a6cb2154",
+            "7d7fba3a3491c78f6c4598504751752a0d4dce61",
+            "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+          ],
+          "findings": [],
+          "repairs": [],
+          "counts": {},
+          "reviewed": 8,
+          "review": {
+            "status": "reviewed",
+            "rejected": [],
+            "files": [
+              ".aikit/codebase_map.md",
+              "README.md",
+              "inventory.py",
+              "src/web.rs",
+              "tests/web.rs",
+              "web/app.js",
+              "web/app.test.js",
+              "web/index.html"
+            ],
+            "packet": ".aikit/reforge.reviews/stage-run-1-5-7a6ea6b7d1bf.md",
+            "redacted": 0,
+            "coverage": {
+              "reported": 34,
+              "total": 34,
+              "carried": [],
+              "missing": [],
+              "unknown": [],
+              "invalid": []
+            },
+            "findings": [],
+            "attestations": []
+          },
+          "skipped": [],
+          "tests": {},
+          "gates": {},
+          "delivery": {
+            "commit": "",
+            "short": "",
+            "pushed": false,
+            "push_error": null,
+            "empty": true,
+            "timestamp": "2026-11-19T20:01:41"
+          },
+          "timestamp": "2026-11-19T20:01:41"
+        },
+        {
+          "run": "run-1",
+          "stage": 6,
+          "window": 18,
+          "commits": [
+            "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+            "c22654e6b314905bbe260977c0f8be88a6cb2154",
+            "7d7fba3a3491c78f6c4598504751752a0d4dce61",
+            "52168771d1c644a58b8bb55321d02a065970e96e",
+            "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+            "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+            "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+            "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
+            "4adde7556c1488fce22440d639e86411563d69f8",
+            "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+            "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+            "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+            "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+            "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+            "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c",
+            "e79266dc087197801c942bdf7588847edd376f6a",
+            "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+            "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
+          ],
+          "new_commits": [
+            "e79266dc087197801c942bdf7588847edd376f6a",
+            "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+            "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
+          ],
+          "prior_commits": [
+            "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
+            "4adde7556c1488fce22440d639e86411563d69f8",
+            "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+            "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+            "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+            "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+            "52168771d1c644a58b8bb55321d02a065970e96e",
+            "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+            "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+            "c22654e6b314905bbe260977c0f8be88a6cb2154",
+            "7d7fba3a3491c78f6c4598504751752a0d4dce61",
+            "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+            "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+            "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+            "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c"
+          ],
+          "findings": [],
+          "repairs": [],
+          "counts": {},
+          "reviewed": 10,
+          "review": {
+            "status": "reviewed",
+            "rejected": [],
+            "files": [
+              ".aikit/codebase_map.md",
+              "README.md",
+              "inventory.py",
+              "src/chart.rs",
+              "src/cli.rs",
+              "src/web.rs",
+              "tests/cli.rs",
+              "tests/web.rs",
+              "web/app.js",
+              "web/app.test.js"
+            ],
+            "packet": ".aikit/reforge.reviews/stage-run-1-6-e79266dc0871.md",
+            "redacted": 0,
+            "coverage": {
+              "reported": 35,
+              "total": 35,
+              "carried": [],
+              "missing": [],
+              "unknown": [],
+              "invalid": []
+            },
+            "findings": [],
+            "attestations": []
+          },
+          "skipped": [],
+          "tests": {},
+          "gates": {},
+          "delivery": {
+            "commit": "",
+            "short": "",
+            "pushed": false,
+            "push_error": null,
+            "empty": true,
+            "timestamp": "2026-11-19T20:02:49"
+          },
+          "timestamp": "2026-11-19T20:02:49"
         }
       ],
-      "total_commits": 83
+      "total_commits": 84
     }
   ],
-  "stage": 4,
-  "window": 12,
+  "stage": 6,
+  "window": 18,
   "audited_commits": [
     "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
     "4adde7556c1488fce22440d639e86411563d69f8",
@@ -659,13 +853,20 @@
     "c7c93c1493bc262e96f6e31036f741064b31ceb0",
     "c22654e6b314905bbe260977c0f8be88a6cb2154",
     "7d7fba3a3491c78f6c4598504751752a0d4dce61",
-    "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+    "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+    "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+    "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+    "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c",
+    "e79266dc087197801c942bdf7588847edd376f6a",
+    "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+    "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
   ],
   "last_audit": {
     "run": "run-1",
-    "stage": 4,
-    "window": 12,
+    "stage": 6,
+    "window": 18,
     "commits": [
+      "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
       "c22654e6b314905bbe260977c0f8be88a6cb2154",
       "7d7fba3a3491c78f6c4598504751752a0d4dce61",
       "52168771d1c644a58b8bb55321d02a065970e96e",
@@ -677,12 +878,17 @@
       "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
       "e69d45d356ba47187d169adc39fb1ecdfda5c481",
       "c7c93c1493bc262e96f6e31036f741064b31ceb0",
-      "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+      "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+      "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+      "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c",
+      "e79266dc087197801c942bdf7588847edd376f6a",
+      "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+      "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
     ],
     "new_commits": [
-      "c22654e6b314905bbe260977c0f8be88a6cb2154",
-      "7d7fba3a3491c78f6c4598504751752a0d4dce61",
-      "42fd1ecb56c4874ac072a5b68ddb9485001544b8"
+      "e79266dc087197801c942bdf7588847edd376f6a",
+      "307207aa0d9d8b75d5aa5d834f3e122053f2491e",
+      "d3de729dcb07c8f52c6608e38fd7caae78699a9f"
     ],
     "prior_commits": [
       "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
@@ -693,12 +899,18 @@
       "e69d45d356ba47187d169adc39fb1ecdfda5c481",
       "52168771d1c644a58b8bb55321d02a065970e96e",
       "35d978376c33adb345ed2cb1ac2adf2774894e3b",
-      "c7c93c1493bc262e96f6e31036f741064b31ceb0"
+      "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+      "c22654e6b314905bbe260977c0f8be88a6cb2154",
+      "7d7fba3a3491c78f6c4598504751752a0d4dce61",
+      "42fd1ecb56c4874ac072a5b68ddb9485001544b8",
+      "7a6ea6b7d1bf42630a36ae3c118223aa7aa86938",
+      "4185ca4ca6da42e58a2df10ee395e0b3d5487417",
+      "f125c87a4abdb5de5d37b1f8a4a328a88fa35a8c"
     ],
     "findings": [],
     "repairs": [],
     "counts": {},
-    "reviewed": 8,
+    "reviewed": 10,
     "review": {
       "status": "reviewed",
       "rejected": [],
@@ -706,17 +918,19 @@
         ".aikit/codebase_map.md",
         "README.md",
         "inventory.py",
+        "src/chart.rs",
+        "src/cli.rs",
         "src/web.rs",
+        "tests/cli.rs",
         "tests/web.rs",
         "web/app.js",
-        "web/app.test.js",
-        "web/index.html"
+        "web/app.test.js"
       ],
-      "packet": ".aikit/reforge.reviews/stage-run-1-4-c22654e6b314.md",
+      "packet": ".aikit/reforge.reviews/stage-run-1-6-e79266dc0871.md",
       "redacted": 0,
       "coverage": {
-        "reported": 23,
-        "total": 23,
+        "reported": 35,
+        "total": 35,
         "carried": [],
         "missing": [],
         "unknown": [],
@@ -734,9 +948,9 @@
       "pushed": false,
       "push_error": null,
       "empty": true,
-      "timestamp": "2026-11-19T19:59:42"
+      "timestamp": "2026-11-19T20:02:49"
     },
-    "timestamp": "2026-11-19T19:59:42"
+    "timestamp": "2026-11-19T20:02:49"
   },
   "history": []
 }
