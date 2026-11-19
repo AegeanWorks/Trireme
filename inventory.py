@@ -54,6 +54,7 @@ if __name__ == "__main__":
     print('button|copy-summary|web/index.html#copy-summary')
     print('button|copy-command|web/index.html#copy-command')
     print('button|copy-map|web/index.html#copy-map')
+    print('button|copy-markdown|web/index.html#copy-markdown')
     print('panel|history|web/index.html#history-title')
     print('button|clear-history|web/index.html#clear-history')
     print('button|export-history|web/index.html#export-history')

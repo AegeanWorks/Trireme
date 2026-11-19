@@ -38,6 +38,7 @@ const HELP_SECTIONS = {
     ["Copy summary", "Copy a plain-text report"],
     ["Copy command", "Copy the cargo command for this query"],
     ["Copy map", "Copy the ASCII route map with its legend"],
+    ["Copy Markdown", "Copy a Markdown report of the route"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Copy history summary", "Copy the history overview to the clipboard"],
@@ -1201,6 +1202,49 @@ function formatMapForClipboard(route, from, to) {
   );
 }
 
+function formatRouteAsMarkdown(route) {
+  if (!route || !Array.isArray(route.steps) || typeof route.time !== "number") {
+    throw new Error("No route to format as Markdown.");
+  }
+  const point = (value) =>
+    Array.isArray(value) ? "(" + value[0] + "," + value[1] + ")" : String(value || "?");
+  const lines = [
+    "## Trireme route " + point(route.from) + " \u2192 " + point(route.to),
+    "",
+    "| Metric | Value |",
+    "| --- | --- |",
+    "| Time | " + route.time + " units |",
+    "| Steps | " + route.steps.length + " |",
+    "| Explored | " + (typeof route.explored === "number" ? route.explored : "?") + " cells |",
+    "",
+    "### Headings",
+    "",
+    route.steps.length ? route.steps.join(" \u2192 ") : "(already there)",
+    "",
+    "### Step times",
+    "",
+    "| Step | Heading | Units |",
+    "| --- | --- | --- |",
+  ];
+  const times = Array.isArray(route.step_times) ? route.step_times : [];
+  if (route.steps.length === 0) {
+    lines.push("| \u2014 | \u2014 | 0 |");
+  } else {
+    route.steps.forEach((step, index) => {
+      lines.push(
+        "| " + (index + 1) + " | " + step + " | " +
+          (times[index] === undefined ? "?" : times[index]) + " |"
+      );
+    });
+  }
+  lines.push("", "### Map", "", "```text");
+  for (const line of String(route.ascii || "").split("\n")) {
+    lines.push(line);
+  }
+  lines.push("```", "");
+  return lines.join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1279,6 +1323,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatRouteSummary,
     formatRouteCommand,
     formatMapForClipboard,
+    formatRouteAsMarkdown,
     comparisonToCsv,
     comparisonCsvFilename,
   };
@@ -1323,6 +1368,7 @@ if (typeof document !== "undefined") {
   const copyChartButton = document.getElementById("copy-chart");
   const copyCommandButton = document.getElementById("copy-command");
   const copyMapButton = document.getElementById("copy-map");
+  const copyMarkdownButton = document.getElementById("copy-markdown");
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const status = document.getElementById("status");
@@ -2120,6 +2166,29 @@ if (typeof document !== "undefined") {
     }
   }
 
+  async function copyRouteMarkdown() {
+    if (lastRoute === null) {
+      setState("Plan a route before copying Markdown.", "bad");
+      return;
+    }
+    const text = formatRouteAsMarkdown(lastRoute);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Route Markdown copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
   function exportComparisonCsv() {
     if (lastComparison === null) {
       setState("Run a comparison before exporting it.", "bad");
@@ -2225,6 +2294,7 @@ if (typeof document !== "undefined") {
   document.getElementById("copy-summary").addEventListener("click", copySummary);
   copyCommandButton.addEventListener("click", copyRouteCommand);
   copyMapButton.addEventListener("click", copyRouteMap);
+  copyMarkdownButton.addEventListener("click", copyRouteMarkdown);
   document.getElementById("compare").addEventListener("click", compare);
   document.getElementById("export-compare-csv").addEventListener("click", exportComparisonCsv);
   clearHistory.addEventListener("click", () => {

@@ -23,6 +23,7 @@ const {
   formatRouteSummary,
   formatRouteCommand,
   formatMapForClipboard,
+  formatRouteAsMarkdown,
   HISTORY_KEY,
   HISTORY_LIMIT,
   historyEntry,
@@ -121,6 +122,7 @@ test("the page declares every control the script binds", () => {
     "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-current",
     "validate-presets", "preset-validation", "diff-output",
     "file", "plan", "clear-editor", "compare", "save", "copy-command", "copy-map",
+    "copy-markdown",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -963,6 +965,30 @@ test("clipboard map keeps the drawing and its legend", () => {
   assert.match(formatHelpText(), /Copy map/);
 });
 
+test("Markdown route report includes metrics, step costs and a fenced map", () => {
+  const route = {
+    from: [0, 0],
+    to: [2, 0],
+    time: 200,
+    explored: 9,
+    steps: ["E", "E"],
+    step_times: [100, 100],
+    ascii: "SoG\n~~~",
+  };
+  const md = formatRouteAsMarkdown(route);
+  assert.match(md, /^## Trireme route \(0,0\) \u2192 \(2,0\)\n/);
+  assert.match(md, /\| Time \| 200 units \|/);
+  assert.match(md, /\| Explored \| 9 cells \|/);
+  assert.match(md, /E \u2192 E/);
+  assert.match(md, /\| 2 \| E \| 100 \|/);
+  assert.match(md, /```text\nSoG\n~~~\n```/);
+  assert.equal(md, formatRouteAsMarkdown(route));
+  assert.match(formatRouteAsMarkdown({ ...route, steps: [], step_times: [], time: 0 }), /\(already there\)/);
+  assert.throws(() => formatRouteAsMarkdown(null), /No route/);
+  assert.throws(() => formatRouteAsMarkdown({ time: 1 }), /No route/);
+  assert.match(formatHelpText(), /Copy Markdown/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1041,6 +1067,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-map"\)/);
   assert.match(source, /copyMapButton\.addEventListener\("click", copyRouteMap\)/);
   assert.match(source, /formatMapForClipboard\(lastRoute/);
+  assert.match(source, /getElementById\("copy-markdown"\)/);
+  assert.match(source, /copyMarkdownButton\.addEventListener\("click", copyRouteMarkdown\)/);
+  assert.match(source, /formatRouteAsMarkdown\(lastRoute\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
