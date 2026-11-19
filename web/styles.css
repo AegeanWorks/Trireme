@@ -68,7 +68,7 @@ code { font-family: var(--mono); color: var(--accent); }
   margin-bottom: 6px;
 }
 
-textarea, input {
+textarea, input, select {
   width: 100%;
   background: var(--bg);
   color: var(--ink);
@@ -80,9 +80,11 @@ textarea, input {
 }
 
 textarea { resize: vertical; }
-textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .endpoints { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 button {
   background: var(--accent);
@@ -93,6 +95,13 @@ button {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+}
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
 }
 button:hover { filter: brightness(1.08); }
 

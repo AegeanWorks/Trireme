@@ -5,5 +5,6 @@
 
 pub mod chart;
 pub mod cli;
+pub mod json;
 pub mod router;
 pub mod web;

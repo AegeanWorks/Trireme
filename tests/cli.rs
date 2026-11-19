@@ -88,6 +88,30 @@ fn wind_changes_time_and_ascii_marks_the_route() {
 }
 
 #[test]
+fn json_output_is_machine_readable_for_charts_routes_and_failures() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 4 2\nwind 1 0\nland 2 1\n");
+    let described = ok_text(&run(&["chart", &chart, "--json"]));
+    assert!(described.contains("\"width\":4"));
+    assert!(described.contains("\"land\":1"));
+
+    let routed = ok_text(&run(&[
+        "route", &chart, "--from", "0,0", "--to", "3,0", "--json",
+    ]));
+    assert!(routed.contains("\"ok\":true"));
+    assert!(routed.contains("\"from\":[0,0]"));
+    assert!(routed.contains("\"steps\""));
+    assert!(routed.contains("\"ascii\""));
+
+    let blocked = scratch.chart("grid 3 3\nwind 0 0\nland 1 0\nland 1 1\nland 1 2\n");
+    let failed = run(&["route", &blocked, "--from", "0,1", "--to", "2,1", "--json"]);
+    assert_eq!(failed.status.code(), Some(1));
+    let text = String::from_utf8(failed.stdout).unwrap();
+    assert!(text.contains("\"ok\":false"));
+    assert!(text.contains("NO ROUTE"));
+}
+
+#[test]
 fn unreachable_goal_exits_one() {
     let scratch = Scratch::new();
     let chart = scratch.chart("grid 3 3\nwind 0 0\nland 1 0\nland 1 1\nland 1 2\n");

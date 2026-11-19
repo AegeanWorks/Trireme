@@ -23,14 +23,15 @@ You describe a grid of water, land, a prevailing wind and optional local current
   ```bash
   cargo run -- serve --project .     # http://127.0.0.1:7878/
   ```
-  Edit the chart and endpoints in the left panel, press **Plan route**, and read the headings, waypoints and ASCII map on the right. The page calls `/api/route`, which uses the same parser and router as the CLI.
+  Pick a preset, edit the chart and endpoints, press **Plan route**, and read the headings, waypoints and ASCII map on the right. **Save chart** / **Load saved** keep a chart in this browser's local storage; **Export route** downloads the last answer as JSON. The page calls `/api/route`, which shares its route document with `route --json`.
+- **Client logic proof** (Node 18+): `node --test web/app.test.js`
 
 ### 🛠️ Commands
 
 | Command | What it does |
 |---|---|
-| `trireme chart <chart>` | Describe the grid, wind, land and current count. |
-| `trireme route <chart> --from X,Y --to X,Y [--ascii]` | Print the headings, waypoints, time in integer units and cells explored. |
+| `trireme chart <chart> [--json]` | Describe the grid, wind, land and current count. |
+| `trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]` | Print the headings, waypoints, time in integer units and cells explored; `--json` emits the shared machine-readable route document. |
 | `trireme serve [--port N] [--project DIR]` | Serve the browser UI from `DIR/web` on loopback (default `7878`). |
 | `trireme help` / `trireme --version` | Show usage or the version. |
 
@@ -67,13 +68,15 @@ trireme/
 │   └── aegean.txt            <- small example chart used in the quick start
 ├── web/
 │   ├── index.html            <- chart editor and route results surface
-│   ├── app.js                <- posts a query and renders the JSON answer
+│   ├── app.js                <- presets, save/load, export and JSON rendering
+│   ├── app.test.js           <- node:test proofs of the pure client helpers
 │   └── styles.css            <- theme variables and layout
 ├── src/
 │   ├── main.rs               <- process entry point and exit code
 │   ├── lib.rs                <- public library surface
 │   ├── cli.rs                <- argument parsing and human-readable output
 │   ├── chart.rs              <- chart format, parsing and validation
+│   ├── json.rs               <- flat JSON reader and writer shared by CLI and API
 │   ├── router.rs             <- Dijkstra routing, integer costs and ASCII map
 │   └── web.rs                <- std-only HTTP server and JSON route API
 ├── tests/

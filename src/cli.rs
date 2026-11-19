@@ -13,8 +13,8 @@ const HELP: &str = "\
 trireme — offline sailing route planner for small sea charts
 
 USAGE:
-  trireme route <chart> --from X,Y --to X,Y [--ascii]
-  trireme chart <chart>
+  trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
+  trireme chart <chart> [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
 
@@ -102,6 +102,7 @@ fn cmd_route(args: &[&str]) -> i32 {
     let mut from: Option<&str> = None;
     let mut to: Option<&str> = None;
     let mut ascii = false;
+    let mut json_output = false;
     let mut index = 0;
     while index < args.len() {
         match args[index] {
@@ -115,11 +116,12 @@ fn cmd_route(args: &[&str]) -> i32 {
                 }
             }
             "--ascii" => ascii = true,
+            "--json" => json_output = true,
             other if other.starts_with('-') => {
                 return fail(
                     &format!("unknown option '{other}'"),
-                    "route accepts --from, --to and --ascii.",
-                    "Use: trireme route <chart> --from X,Y --to X,Y [--ascii]",
+                    "route accepts --from, --to, --ascii and --json.",
+                    "Use: trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]",
                 )
             }
             other if chart_path.is_none() => chart_path = Some(other),
@@ -157,10 +159,15 @@ fn cmd_route(args: &[&str]) -> i32 {
     let route = match find_route(&sea, from, to) {
         Ok(Some(route)) => route,
         Ok(None) => {
-            println!(
+            let message = format!(
                 "NO ROUTE: ({},{}) cannot reach ({},{}) on this chart",
                 from.0, from.1, to.0, to.1
             );
+            if json_output {
+                println!("{}", web::error_json(&message));
+            } else {
+                println!("{message}");
+            }
             return 1;
         }
         Err(err) => {
@@ -171,6 +178,12 @@ fn cmd_route(args: &[&str]) -> i32 {
             )
         }
     };
+
+    if json_output {
+        let map = render_ascii(&sea, from, to, Some(&route));
+        println!("{}", web::route_json(from, to, &route, &map));
+        return 0;
+    }
 
     println!("TRIREME ROUTE");
     println!("from ({},{}) to ({},{})", from.0, from.1, to.0, to.1);
@@ -190,17 +203,31 @@ fn cmd_route(args: &[&str]) -> i32 {
 }
 
 fn cmd_chart(args: &[&str]) -> i32 {
-    if args.len() != 1 || args[0].starts_with('-') {
+    let json_output = args.iter().any(|arg| *arg == "--json");
+    let paths: Vec<&str> = args.iter().copied().filter(|arg| *arg != "--json").collect();
+    if paths.len() != 1 || paths[0].starts_with('-') {
         return fail(
             "chart needs exactly one chart file",
             "Describing a chart requires a single source.",
-            "Use: trireme chart <chart>",
+            "Use: trireme chart <chart> [--json]",
         );
     }
-    let sea = match read_chart(args[0]) {
+    let sea = match read_chart(paths[0]) {
         Ok(sea) => sea,
         Err(code) => return code,
     };
+    if json_output {
+        println!(
+            "{{\"ok\":true,\"width\":{},\"height\":{},\"wind\":[{},{}],\"land\":{},\"currents\":{}}}",
+            sea.width,
+            sea.height,
+            sea.wind.dx,
+            sea.wind.dy,
+            sea.land.len(),
+            sea.currents.len()
+        );
+        return 0;
+    }
     println!("TRIREME CHART");
     println!("grid {}x{}", sea.width, sea.height);
     println!("wind ({},{})", sea.wind.dx, sea.wind.dy);

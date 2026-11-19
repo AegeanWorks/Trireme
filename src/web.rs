@@ -9,7 +9,8 @@ use std::path::Path;
 use std::time::Duration;
 
 use crate::chart;
-use crate::router::{find_route, render_ascii};
+use crate::json;
+use crate::router::{find_route, render_ascii, Route};
 
 /// One parsed HTTP request; only the method, path and body are needed here.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -92,138 +93,80 @@ fn serve_file(project_root: &Path, name: &str, content_type: &str) -> String {
 
 /// Answers a planning request from the browser.
 pub fn api_route(body: &str) -> String {
-    let chart_text = match json_string(body, "chart") {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let chart_text = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|raw| json::string_value(raw))
+    {
         Ok(text) => text,
-        Err(err) => return response(400, "application/json", &json_error(&err)),
+        Err(err) => return response(400, "application/json", &error_json(&err)),
     };
-    let from = match json_point(body, "from") {
+    let from = match parsed
+        .get("from")
+        .ok_or_else(|| "missing field 'from'".to_string())
+        .and_then(|raw| json::point_value(raw))
+    {
         Ok(point) => point,
-        Err(err) => return response(400, "application/json", &json_error(&err)),
+        Err(err) => return response(400, "application/json", &error_json(&err)),
     };
-    let to = match json_point(body, "to") {
+    let to = match parsed
+        .get("to")
+        .ok_or_else(|| "missing field 'to'".to_string())
+        .and_then(|raw| json::point_value(raw))
+    {
         Ok(point) => point,
-        Err(err) => return response(400, "application/json", &json_error(&err)),
+        Err(err) => return response(400, "application/json", &error_json(&err)),
     };
     let sea = match chart::parse(&chart_text) {
         Ok(sea) => sea,
-        Err(err) => return response(400, "application/json", &json_error(&err)),
+        Err(err) => return response(400, "application/json", &error_json(&err)),
     };
     match find_route(&sea, from, to) {
         Ok(Some(route)) => {
-            let steps: Vec<String> = route.steps.iter().map(|step| format!("\"{step}\"")).collect();
-            let points: Vec<String> = route
-                .waypoints
-                .iter()
-                .map(|(x, y)| format!("[{x},{y}]"))
-                .collect();
             let map = render_ascii(&sea, from, to, Some(&route));
-            let json = format!(
-                "{{\"ok\":true,\"steps\":[{}],\"waypoints\":[{}],\"time\":{},\"explored\":{},\"ascii\":{}}}",
-                steps.join(","),
-                points.join(","),
-                route.time,
-                route.explored,
-                json_string_literal(&map)
-            );
-            response(200, "application/json", &json)
+            response(200, "application/json", &route_json(from, to, &route, &map))
         }
         Ok(None) => response(
             200,
             "application/json",
-            &json_error(&format!(
+            &error_json(&format!(
                 "NO ROUTE: ({},{}) cannot reach ({},{}) on this chart",
                 from.0, from.1, to.0, to.1
             )),
         ),
-        Err(err) => response(400, "application/json", &json_error(&err)),
+        Err(err) => response(400, "application/json", &error_json(&err)),
     }
 }
 
-fn json_error(message: &str) -> String {
-    format!("{{\"ok\":false,\"error\":{}}}", json_string_literal(message))
+/// The shared machine-readable route document used by the API and the CLI.
+pub fn route_json(from: (u32, u32), to: (u32, u32), route: &Route, map: &str) -> String {
+    let steps: Vec<String> = route.steps.iter().map(|step| json::quote(step)).collect();
+    let points: Vec<String> = route
+        .waypoints
+        .iter()
+        .map(|(x, y)| format!("[{x},{y}]"))
+        .collect();
+    format!(
+        "{{\"ok\":true,\"from\":[{},{}],\"to\":[{},{}],\"steps\":[{}],\"waypoints\":[{}],\"time\":{},\"explored\":{},\"ascii\":{}}}",
+        from.0,
+        from.1,
+        to.0,
+        to.1,
+        steps.join(","),
+        points.join(","),
+        route.time,
+        route.explored,
+        json::quote(map)
+    )
 }
 
-/// Reads one string field from a flat JSON object, decoding common escapes.
-fn json_string(body: &str, key: &str) -> Result<String, String> {
-    let needle = format!("\"{key}\"");
-    let at = body
-        .find(&needle)
-        .ok_or_else(|| format!("missing field '{key}'"))?;
-    let rest = body[at + needle.len()..]
-        .trim_start()
-        .strip_prefix(':')
-        .ok_or_else(|| format!("field '{key}' has no value"))?
-        .trim_start();
-    let raw = rest
-        .strip_prefix('"')
-        .ok_or_else(|| format!("field '{key}' must be a string"))?;
-    let mut out = String::new();
-    let mut chars = raw.chars();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' => return Ok(out),
-            '\\' => match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('"') => out.push('"'),
-                Some('\\') => out.push('\\'),
-                Some(other) => out.push(other),
-                None => return Err(format!("field '{key}' ends with a backslash")),
-            },
-            other => out.push(other),
-        }
-    }
-    Err(format!("field '{key}' has no closing quote"))
-}
-
-/// Reads a `[x,y]` field from a flat JSON object.
-fn json_point(body: &str, key: &str) -> Result<(u32, u32), String> {
-    let needle = format!("\"{key}\"");
-    let at = body
-        .find(&needle)
-        .ok_or_else(|| format!("missing field '{key}'"))?;
-    let rest = body[at + needle.len()..]
-        .trim_start()
-        .strip_prefix(':')
-        .ok_or_else(|| format!("field '{key}' has no value"))?
-        .trim_start();
-    let inside = rest
-        .strip_prefix('[')
-        .ok_or_else(|| format!("field '{key}' must be an [x,y] array"))?;
-    let end = inside
-        .find(']')
-        .ok_or_else(|| format!("field '{key}' has no closing bracket"))?;
-    let mut numbers = inside[..end].split(',');
-    let x = numbers
-        .next()
-        .and_then(|part| part.trim().parse::<u32>().ok())
-        .ok_or_else(|| format!("field '{key}' has an invalid x"))?;
-    let y = numbers
-        .next()
-        .and_then(|part| part.trim().parse::<u32>().ok())
-        .ok_or_else(|| format!("field '{key}' has an invalid y"))?;
-    if numbers.next().is_some() {
-        return Err(format!("field '{key}' must have exactly two numbers"));
-    }
-    Ok((x, y))
-}
-
-/// Quotes and escapes a string for use as a JSON value.
-fn json_string_literal(value: &str) -> String {
-    let mut out = String::from("\"");
-    for ch in value.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            other => out.push(other),
-        }
-    }
-    out.push('"');
-    out
+/// A stable error document; never a bare string.
+pub fn error_json(message: &str) -> String {
+    format!("{{\"ok\":false,\"error\":{}}}", json::quote(message))
 }
 
 /// Serves requests forever on an already-bound listener.
@@ -349,10 +292,10 @@ mod tests {
     }
 
     #[test]
-    fn escaping_keeps_newlines_and_quotes_valid() {
-        assert_eq!(json_string_literal("a\n\"b\""), "\"a\\n\\\"b\\\"\"");
-        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 2 2\\nwind 0 0\\n\",\"from\":[0,0],\"to\":[1,1]}";
-        assert!(json_string(body, "chart").unwrap().contains('\n'));
-        assert_eq!(json_point(body, "from").unwrap(), (0, 0));
+    fn a_key_inside_the_chart_text_is_not_read_as_a_field() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\n# from:[9,9]\\ngrid 2 2\\nwind 0 0\\n\",\"from\":[0,0],\"to\":[1,1]}";
+        let out = api_route(body);
+        assert!(out.contains("\"ok\":true"), "{out}");
+        assert!(out.contains("\"from\":[0,0]"), "{out}");
     }
 }

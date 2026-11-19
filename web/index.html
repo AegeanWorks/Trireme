@@ -20,6 +20,15 @@
       <h2 id="chart-title">Sea chart</h2>
       <p class="hint">Grid, wind, land and local currents. See <code>trireme --help</code> for the format.</p>
       <label class="field">
+        <span>Preset</span>
+        <select id="preset">
+          <option value="aegean">Aegean crossing</option>
+          <option value="calm">Calm crossing</option>
+          <option value="headwind">Headwind</option>
+          <option value="detour">Island detour</option>
+        </select>
+      </label>
+      <label class="field">
         <span>Chart</span>
         <textarea id="chart" rows="10" spellcheck="false">TRIREME-CHART v1
 grid 8 4
@@ -40,7 +49,13 @@ current 6 1 -1 0</textarea>
           <input id="to" value="7,0" spellcheck="false">
         </label>
       </div>
-      <button id="plan" type="button">Plan route</button>
+      <div class="actions">
+        <button id="plan" type="button">Plan route</button>
+        <button id="save" type="button" class="secondary">Save chart</button>
+        <button id="load" type="button" class="secondary">Load saved</button>
+        <button id="export" type="button" class="secondary">Export route</button>
+      </div>
+      <p class="hint">Presets are examples; Save/Load keep a chart in this browser only.</p>
       <p class="hint">Tip: press Ctrl+Enter to plan.</p>
     </section>
 
