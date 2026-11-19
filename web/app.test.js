@@ -61,6 +61,7 @@ const {
   bundleImportSummary,
   bundleApplyPreview,
   formatBundlePreview,
+  defaultEditorState,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -91,7 +92,7 @@ test("the page declares every control the script binds", () => {
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
-    "file", "plan", "compare", "save",
+    "file", "plan", "clear-editor", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -660,6 +661,24 @@ test("bundle preview reports incoming and kept counts before applying", () => {
   assert.throws(() => formatBundlePreview(null), /No bundle preview/);
 });
 
+test("clear editor restores the default chart and endpoints", () => {
+  const first = defaultEditorState();
+  assert.equal(first.from, "0,2");
+  assert.equal(first.to, "7,0");
+  assert.match(first.chart, /^TRIREME-CHART v1\n/);
+  assert.deepEqual(defaultEditorState(), first);
+  const custom = {
+    probe: { chart: "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n", from: [1, 1], to: [0, 0] },
+  };
+  assert.deepEqual(defaultEditorState(custom), {
+    chart: "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n",
+    from: "1,1",
+    to: "0,0",
+  });
+  assert.throws(() => defaultEditorState({}), /No default preset/);
+  assert.match(formatHelpText(), /Clear editor/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -695,6 +714,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /applyBundleButton\.addEventListener\("click", applyPendingBundle\)/);
   assert.match(source, /cancelBundleButton\.addEventListener\("click", cancelPendingBundle\)/);
   assert.match(source, /bundleApplyPreview\(/);
+  assert.match(source, /getElementById\("clear-editor"\)\.addEventListener\("click", clearEditor\)/);
+  assert.match(source, /defaultEditorState\(\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

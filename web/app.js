@@ -19,6 +19,7 @@ const HELP_SECTIONS = {
     ["Ctrl+Enter", "Plan the current query"],
     ["Ctrl+Shift+C", "Compare with calm water"],
     ["Plan route", "Compute and show the route"],
+    ["Clear editor", "Reset chart and endpoints to the default preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
@@ -778,6 +779,19 @@ function formatBundlePreview(preview) {
   ].join("\n");
 }
 
+function defaultEditorState(presets) {
+  const source = presets && typeof presets === "object" ? presets : PRESETS;
+  const chosen = source.aegean || source[Object.keys(source)[0]];
+  if (!chosen) {
+    throw new Error("No default preset available.");
+  }
+  return {
+    chart: validateChartText(chosen.chart),
+    from: String(chosen.from),
+    to: String(chosen.to),
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -822,6 +836,7 @@ if (typeof module !== "undefined" && module.exports) {
     PRESETS,
     point,
     applyPreset,
+    defaultEditorState,
     chartFilename,
     validateChartText,
     chartIssues,
@@ -899,6 +914,17 @@ if (typeof document !== "undefined") {
     issuesPanel.hidden = issues.length === 0;
     issuesPanel.textContent = formatChartIssues(issues);
     return issues.length;
+  }
+
+  function clearEditor() {
+    const state = defaultEditorState();
+    chart.value = state.chart;
+    renderIssues();
+    from.value = state.from;
+    to.value = state.to;
+    chartName = "chart.txt";
+    reset();
+    setState("Editor reset to the default chart.", "good");
   }
 
   function openHelp() {
@@ -1472,6 +1498,7 @@ if (typeof document !== "undefined") {
   }
 
   document.getElementById("plan").addEventListener("click", plan);
+  document.getElementById("clear-editor").addEventListener("click", clearEditor);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);
   document.getElementById("import").addEventListener("click", importChart);

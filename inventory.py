@@ -17,6 +17,7 @@ if __name__ == "__main__":
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
     print('button|plan|web/index.html#plan')
+    print('button|clear-editor|web/index.html#clear-editor')
     print('button|compare|web/index.html#compare')
     print('output|compare-summary|web/index.html#compare-summary')
     print('output|compare-current|web/index.html#compare-current')
