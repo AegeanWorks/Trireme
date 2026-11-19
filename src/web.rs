@@ -70,6 +70,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("GET", "/styles.css") => serve_file(project_root, "styles.css", "text/css; charset=utf-8"),
         ("POST", "/api/route") => api_route(&request.body),
         ("POST", "/api/calm") => api_calm(&request.body),
+        ("POST", "/api/stats") => api_stats(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -89,6 +90,42 @@ fn serve_file(project_root: &Path, name: &str, content_type: &str) -> String {
             "text/plain; charset=utf-8",
             &format!("cannot read web/{name}: {err}"),
         ),
+    }
+}
+
+/// Returns counts derived from a chart by the Rust core.
+pub fn api_stats(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    match chart::parse(&raw) {
+        Ok(sea) => {
+            let stats = sea.stats();
+            response(
+                200,
+                "application/json",
+                &format!(
+                    "{{\"ok\":true,\"width\":{},\"height\":{},\"cells\":{},\"land\":{},\"currents\":{},\"wind\":[{},{}]}}",
+                    stats.width,
+                    stats.height,
+                    stats.cells,
+                    stats.land,
+                    stats.currents,
+                    stats.wind.dx,
+                    stats.wind.dy
+                ),
+            )
+        }
+        Err(err) => response(400, "application/json", &error_json(&err)),
     }
 }
 
@@ -324,6 +361,19 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn stats_endpoint_returns_rust_derived_counts() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 4 3\\nwind 1 0\\nland 2 2\\ncurrent 1 1 0 1\\n\"}";
+        let out = api_stats(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"cells\":12"));
+        assert!(out.contains("\"land\":1"));
+        assert!(out.contains("\"currents\":1"));
+        assert!(out.contains("\"wind\":[1,0]"));
+        assert!(api_stats("{}").starts_with("HTTP/1.1 400"));
+        assert!(api_stats("{\"chart\":\"grid 2 2\"}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]

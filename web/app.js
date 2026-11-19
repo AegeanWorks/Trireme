@@ -943,6 +943,8 @@ function historyCsvFilename() {
   return HISTORY_KEY + ".csv";
 }
 
+// Tooling/test-only fallback; the browser panel uses Rust counts from
+// POST /api/stats so the CLI and UI report the same numbers.
 function chartStats(text) {
   const lines = String(text || "")
     .replace(/\r\n?/g, "\n")
@@ -973,6 +975,26 @@ function chartStats(text) {
     }
   }
   return stats;
+}
+
+function statsRequestBody(text) {
+  return JSON.stringify({ chart: String(text || "") });
+}
+
+function parseStatsResponse(result) {
+  if (!result || !result.ok || typeof result.cells !== "number") {
+    throw new Error(
+      result && result.error ? result.error : "Could not derive chart statistics."
+    );
+  }
+  return {
+    width: result.width,
+    height: result.height,
+    cells: result.cells,
+    land: result.land,
+    currents: result.currents,
+    wind: Array.isArray(result.wind) ? result.wind : [0, 0],
+  };
 }
 
 function formatChartStats(stats) {
@@ -1427,6 +1449,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartIssues,
     chartStats,
     formatChartStats,
+    statsRequestBody,
+    parseStatsResponse,
     formatChartStatsForClipboard,
     formatPresetStatsForClipboard,
     formatChartForClipboard,
@@ -1904,8 +1928,25 @@ if (typeof document !== "undefined") {
     setState("Preset '" + item.name + "' loaded.", "good");
   }
 
-  function renderStats() {
-    chartStatsOutput.textContent = formatChartStats(chartStats(chart.value));
+  let statsRequest = 0;
+
+  async function renderStats() {
+    const request = ++statsRequest;
+    try {
+      const response = await fetch("/api/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: statsRequestBody(chart.value),
+      });
+      const stats = parseStatsResponse(await response.json());
+      if (request === statsRequest) {
+        chartStatsOutput.textContent = formatChartStats(stats);
+      }
+    } catch (error) {
+      if (request === statsRequest) {
+        chartStatsOutput.textContent = "Statistics unavailable.";
+      }
+    }
   }
 
   function diffCurrentAgainstPreset() {

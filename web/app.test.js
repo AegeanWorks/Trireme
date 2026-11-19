@@ -85,6 +85,8 @@ const {
   chartStats,
   formatChartStats,
   formatChartStatsForClipboard,
+  statsRequestBody,
+  parseStatsResponse,
   formatPresetStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
@@ -1008,6 +1010,23 @@ test("Markdown route report includes metrics, step costs and a fenced map", () =
   assert.match(formatHelpText(), /Copy Markdown/);
 });
 
+test("stats API helpers validate the Rust response shape", () => {
+  const text = "TRIREME-CHART v1\ngrid 4 1\nwind 1 0\n";
+  assert.equal(statsRequestBody(text), JSON.stringify({ chart: text }));
+  const response = { ok: true, width: 4, height: 1, cells: 4, land: 0, currents: 0, wind: [1, 0] };
+  assert.deepEqual(parseStatsResponse(response), {
+    width: 4, height: 1, cells: 4, land: 0, currents: 0, wind: [1, 0],
+  });
+  assert.equal(
+    formatChartStats(parseStatsResponse(response)),
+    "4x1 grid \u00b7 4 cells \u00b7 0 land \u00b7 0 currents \u00b7 wind (1,0)"
+  );
+  assert.deepEqual(parseStatsResponse({ ...response, wind: undefined }).wind, [0, 0]);
+  assert.throws(() => parseStatsResponse(null), /Could not derive/);
+  assert.throws(() => parseStatsResponse({ ok: false, error: "bad chart" }), /bad chart/);
+  assert.throws(() => parseStatsResponse({ ok: true }), /Could not derive/);
+});
+
 test("clipboard chart stats are labelled and reuse the panel format", () => {
   const stats = chartStats("TRIREME-CHART v1\ngrid 8 4\nwind 1 0\nland 2 2\ncurrent 5 2 0 -1\n");
   assert.equal(
@@ -1179,6 +1198,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-stats"\)/);
   assert.match(source, /copyStatsButton\.addEventListener\("click", copyChartStats\)/);
   assert.match(source, /formatChartStatsForClipboard\(chartStats\(chart\.value\)\)/);
+  assert.match(source, /fetch\("\/api\/stats"/);
+  assert.match(source, /parseStatsResponse\(await response\.json\(\)\)/);
+  assert.match(source, /statsRequest/);
   assert.match(source, /getElementById\("copy-preset-stats"\)/);
   assert.match(source, /copyPresetStatsButton\.addEventListener\("click", copyPresetStats\)/);
   assert.match(source, /formatPresetStatsForClipboard\(preset\)/);
@@ -1189,7 +1211,7 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /copyMarkdownButton\.addEventListener\("click", copyRouteMarkdown\)/);
   assert.match(source, /formatRouteAsMarkdown\(lastRoute\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
-  assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
+  assert.match(source, /statsRequestBody\(chart\.value\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
