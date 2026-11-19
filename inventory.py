@@ -20,6 +20,7 @@ if __name__ == "__main__":
     print('input|duplicate-preset-name|web/index.html#duplicate-preset-name')
     print('button|duplicate-preset|web/index.html#duplicate-preset')
     print('textarea|chart|web/index.html#chart')
+    print('output|chart-stats|web/index.html#chart-stats')
     print('output|chart-issues|web/index.html#chart-issues')
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')

@@ -911,6 +911,60 @@ function historyCsvFilename() {
   return HISTORY_KEY + ".csv";
 }
 
+function chartStats(text) {
+  const lines = String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+  const stats = { width: 0, height: 0, cells: 0, land: 0, currents: 0, wind: [0, 0] };
+  for (const line of lines) {
+    const parts = line.split(/\s+/);
+    if (parts[0] === "grid" && parts.length === 3) {
+      const width = Number(parts[1]);
+      const height = Number(parts[2]);
+      if (Number.isInteger(width) && Number.isInteger(height) && width >= 0 && height >= 0) {
+        stats.width = width;
+        stats.height = height;
+        stats.cells = width * height;
+      }
+    } else if (parts[0] === "wind" && parts.length === 3) {
+      const dx = Number(parts[1]);
+      const dy = Number(parts[2]);
+      if (Number.isInteger(dx) && Number.isInteger(dy)) {
+        stats.wind = [dx, dy];
+      }
+    } else if (parts[0] === "land") {
+      stats.land += 1;
+    } else if (parts[0] === "current") {
+      stats.currents += 1;
+    }
+  }
+  return stats;
+}
+
+function formatChartStats(stats) {
+  if (!stats) {
+    throw new Error("No chart statistics to format.");
+  }
+  return (
+    stats.width +
+    "x" +
+    stats.height +
+    " grid \u00b7 " +
+    stats.cells +
+    " cells \u00b7 " +
+    stats.land +
+    " land \u00b7 " +
+    stats.currents +
+    " currents \u00b7 wind (" +
+    stats.wind[0] +
+    "," +
+    stats.wind[1] +
+    ")"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -967,6 +1021,8 @@ if (typeof module !== "undefined" && module.exports) {
     validateChartText,
     chartIssues,
     formatChartIssues,
+    chartStats,
+    formatChartStats,
     calmChartText,
     compareSummary,
     csvCell,
@@ -1007,6 +1063,7 @@ if (typeof document !== "undefined") {
   const duplicatePresetButton = document.getElementById("duplicate-preset");
   const file = document.getElementById("file");
   const issuesPanel = document.getElementById("chart-issues");
+  const chartStatsOutput = document.getElementById("chart-stats");
   const status = document.getElementById("status");
   const time = document.getElementById("time");
   const stepsCount = document.getElementById("steps-count");
@@ -1043,6 +1100,7 @@ if (typeof document !== "undefined") {
   }
 
   function renderIssues() {
+    renderStats();
     const issues = chartIssues(chart.value);
     issuesPanel.hidden = issues.length === 0;
     issuesPanel.textContent = formatChartIssues(issues);
@@ -1312,6 +1370,10 @@ if (typeof document !== "undefined") {
     chartName = "preset-" + item.name.replace(/\s+/g, "-") + ".txt";
     reset();
     setState("Preset '" + item.name + "' loaded.", "good");
+  }
+
+  function renderStats() {
+    chartStatsOutput.textContent = formatChartStats(chartStats(chart.value));
   }
 
   function renderHistory() {

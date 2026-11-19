@@ -177,6 +177,8 @@ button:hover { filter: brightness(1.08); }
 .compare-grid { display: flex; flex-wrap: wrap; gap: 24px; }
 .compare-grid strong { font-family: var(--mono); font-size: 18px; }
 
+#chart-stats { margin-bottom: 12px; color: var(--muted); }
+
 .issues {
   margin: 0 0 12px;
   padding: 10px;

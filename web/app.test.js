@@ -69,6 +69,8 @@ const {
   sortLocalPresets,
   historyToCsv,
   historyCsvFilename,
+  chartStats,
+  formatChartStats,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -97,7 +99,7 @@ test("the page declares every control the script binds", () => {
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
-    "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
+    "chart", "chart-stats", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
     "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
@@ -768,6 +770,21 @@ test("history CSV carries chart, endpoints, time and note with escaping", () => 
   assert.match(formatHelpText(), /Export history CSV/);
 });
 
+test("chart statistics summarize grid, land, currents and wind", () => {
+  const text =
+    "# note\r\nTRIREME-CHART v1\r\ngrid 8 4\r\nwind 1 -1\r\n" +
+    "land 2 2\r\nland 3 1\r\ncurrent 5 2 0 -1\r\n";
+  const stats = chartStats(text);
+  assert.deepEqual(stats, { width: 8, height: 4, cells: 32, land: 2, currents: 1, wind: [1, -1] });
+  assert.equal(
+    formatChartStats(stats),
+    "8x4 grid \u00b7 32 cells \u00b7 2 land \u00b7 1 currents \u00b7 wind (1,-1)"
+  );
+  assert.deepEqual(chartStats(""), { width: 0, height: 0, cells: 0, land: 0, currents: 0, wind: [0, 0] });
+  assert.deepEqual(chartStats("grid x 3\nwind 2 0\n").wind, [2, 0]);
+  assert.throws(() => formatChartStats(null), /No chart statistics/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -817,6 +834,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /sortLocalPresets\(/);
   assert.match(source, /getElementById\("export-history-csv"\)\.addEventListener\("click", exportHistoryCsv\)/);
   assert.match(source, /historyToCsv\(entries\)/);
+  assert.match(source, /getElementById\("chart-stats"\)/);
+  assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
