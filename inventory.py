@@ -22,6 +22,7 @@ if __name__ == "__main__":
     print('select|diff-left|web/index.html#diff-left')
     print('select|diff-right|web/index.html#diff-right')
     print('button|compare-presets|web/index.html#compare-presets')
+    print('button|copy-diff|web/index.html#copy-diff')
     print('output|diff-output|web/index.html#diff-output')
     print('textarea|chart|web/index.html#chart')
     print('output|chart-stats|web/index.html#chart-stats')

@@ -28,6 +28,7 @@ const HELP_SECTIONS = {
     ["Filter presets", "Search saved presets by name, chart or endpoints"],
     ["Sort presets", "Order saved presets by name or chart size"],
     ["Compare presets", "Show a line-by-line diff of two saved charts"],
+    ["Copy diff", "Copy that chart diff to the clipboard"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -1025,6 +1026,21 @@ function formatChartDiff(diff) {
   return lines.join("\n");
 }
 
+function formatDiffForClipboard(diff, leftName, rightName) {
+  if (!diff || !Array.isArray(diff.rows)) {
+    throw new Error("No chart diff to copy.");
+  }
+  return (
+    "Trireme chart diff: " +
+    String(leftName || "left") +
+    " -> " +
+    String(rightName || "right") +
+    "\n" +
+    formatChartDiff(diff) +
+    "\n"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1085,6 +1101,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartStats,
     diffCharts,
     formatChartDiff,
+    formatDiffForClipboard,
     calmChartText,
     compareSummary,
     csvCell,
@@ -1118,6 +1135,7 @@ if (typeof document !== "undefined") {
   const diffRight = document.getElementById("diff-right");
   const diffOutput = document.getElementById("diff-output");
   const comparePresetsButton = document.getElementById("compare-presets");
+  const copyDiffButton = document.getElementById("copy-diff");
   const presetFilterStatus = document.getElementById("preset-filter-status");
   const presetsFile = document.getElementById("presets-file");
   const exportPresetsButton = document.getElementById("export-presets");
@@ -1158,6 +1176,8 @@ if (typeof document !== "undefined") {
   let pendingImport = null;
   let resetArmed = false;
   let pendingBundle = null;
+  let lastDiff = null;
+  let lastDiffNames = ["", ""];
   let chartName = "chart.txt";
 
   function setState(message, kind) {
@@ -1363,7 +1383,9 @@ if (typeof document !== "undefined") {
       setState("Select two different presets.", "bad");
       return;
     }
-    diffOutput.textContent = formatChartDiff(diffCharts(left.chart, right.chart));
+    lastDiff = diffCharts(left.chart, right.chart);
+    lastDiffNames = [left.name, right.name];
+    diffOutput.textContent = formatChartDiff(lastDiff);
     setState("Compared '" + left.name + "' with '" + right.name + "'.", "good");
   }
 
@@ -1481,6 +1503,29 @@ if (typeof document !== "undefined") {
 
   function renderStats() {
     chartStatsOutput.textContent = formatChartStats(chartStats(chart.value));
+  }
+
+  async function copyChartDiff() {
+    if (!lastDiff) {
+      setState("Compare two presets before copying their diff.", "bad");
+      return;
+    }
+    const text = formatDiffForClipboard(lastDiff, lastDiffNames[0], lastDiffNames[1]);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Chart diff copied to the clipboard.", "good");
+    } catch (error) {
+      setState("Clipboard unavailable: " + error, "bad");
+    }
   }
 
   function renderHistory() {
@@ -1911,6 +1956,7 @@ if (typeof document !== "undefined") {
   renamePresetButton.addEventListener("click", renameSelectedPreset);
   duplicatePresetButton.addEventListener("click", duplicateSelectedPreset);
   comparePresetsButton.addEventListener("click", compareSavedPresets);
+  copyDiffButton.addEventListener("click", copyChartDiff);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();
