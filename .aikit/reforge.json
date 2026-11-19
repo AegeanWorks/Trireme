@@ -9,52 +9,61 @@
       "start": 3,
       "step": 3,
       "stop": null,
-      "stage": 2,
-      "window": 6,
+      "stage": 3,
+      "window": 9,
       "audited_commits": [
         "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
         "4adde7556c1488fce22440d639e86411563d69f8",
         "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
         "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
         "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
-        "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+        "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+        "52168771d1c644a58b8bb55321d02a065970e96e",
+        "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+        "c7c93c1493bc262e96f6e31036f741064b31ceb0"
       ],
       "status": "active",
       "created": "2026-11-19T19:13:01",
-      "updated": "2026-11-19T19:52:09",
+      "updated": "2026-11-19T19:56:05",
       "last_audit": {
         "run": "run-1",
-        "stage": 2,
-        "window": 6,
+        "stage": 3,
+        "window": 9,
         "commits": [
+          "52168771d1c644a58b8bb55321d02a065970e96e",
+          "35d978376c33adb345ed2cb1ac2adf2774894e3b",
           "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
           "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
           "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
           "4adde7556c1488fce22440d639e86411563d69f8",
           "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
-          "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+          "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+          "c7c93c1493bc262e96f6e31036f741064b31ceb0"
         ],
         "new_commits": [
-          "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
-          "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
-          "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+          "52168771d1c644a58b8bb55321d02a065970e96e",
+          "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+          "c7c93c1493bc262e96f6e31036f741064b31ceb0"
         ],
         "prior_commits": [
           "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
           "4adde7556c1488fce22440d639e86411563d69f8",
-          "b6004b6ad4a95969d8955c4a48009e75f34f3abf"
+          "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+          "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+          "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+          "e69d45d356ba47187d169adc39fb1ecdfda5c481"
         ],
         "findings": [
           {
-            "code": "review-tautological-assertion",
+            "code": "review-inspect-not-importable",
             "category": "improvement",
             "severity": "low",
-            "path": "web/app.test.js",
-            "line": 251,
-            "message": "This assertion calls inspectionToJson twice and compares the two results, so it always passes even if the formatter changes shape or breaks. Use a fixed expected string or re-serialize a known document and assert stable fields instead.",
-            "evidence": "assert.equal(inspectionToJson(inspect), inspectionToJson(inspect));",
-            "commit": "e69d45d356ba47187d169adc39fb1ecdfda5c481",
-            "hunk": "e69d45d356ba:web/app.test.js#3",
+            "path": "src/web.rs",
+            "line": 261,
+            "message": "The `inspect --json` document is flat and has no `schema`, so piping it into the sibling `import-inspection` command fails with 'Inspection file has no schema.' Reproduced: `trireme inspect chart --json > doc.json && trireme import-inspection doc.json`. Both commands use the word inspection, so users will try this round trip. Either emit the versioned `trireme.inspection/1` wrapper (with nested `i",
+            "evidence": "\"{{\\\"ok\\\":true,\\\"valid\\\":true,\\\"fingerprint\\\":{},\\\"width\\\":{},\\\"height\\\":{},\\\"cells\\\":{},\\\"land\\\":{},\\\"currents\\\":{},\\\"wind\\\":[{},{}]}}\",",
+            "commit": "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+            "hunk": "c7c93c1493bc:src/web.rs#2",
             "symbol": "",
             "introduced": true,
             "reproducible": false,
@@ -70,7 +79,7 @@
         "counts": {
           "improvement": 1
         },
-        "reviewed": 7,
+        "reviewed": 8,
         "review": {
           "status": "reviewed",
           "rejected": [],
@@ -78,16 +87,17 @@
             ".aikit/codebase_map.md",
             "README.md",
             "inventory.py",
+            "src/cli.rs",
+            "src/web.rs",
             "tests/cli.rs",
             "web/app.js",
-            "web/app.test.js",
-            "web/index.html"
+            "web/app.test.js"
           ],
-          "packet": ".aikit/reforge.reviews/stage-run-1-2-e75f4c8c9072.md",
+          "packet": ".aikit/reforge.reviews/stage-run-1-3-52168771d1c6.md",
           "redacted": 0,
           "coverage": {
-            "reported": 18,
-            "total": 18,
+            "reported": 13,
+            "total": 13,
             "carried": [],
             "missing": [],
             "unknown": [],
@@ -95,15 +105,15 @@
           },
           "findings": [
             {
-              "code": "review-tautological-assertion",
+              "code": "review-inspect-not-importable",
               "category": "improvement",
               "severity": "low",
-              "path": "web/app.test.js",
-              "line": 251,
-              "message": "This assertion calls inspectionToJson twice and compares the two results, so it always passes even if the formatter changes shape or breaks. Use a fixed expected string or re-serialize a known document and assert stable fields instead.",
-              "evidence": "assert.equal(inspectionToJson(inspect), inspectionToJson(inspect));",
-              "commit": "e69d45d356ba47187d169adc39fb1ecdfda5c481",
-              "hunk": "e69d45d356ba:web/app.test.js#3",
+              "path": "src/web.rs",
+              "line": 261,
+              "message": "The `inspect --json` document is flat and has no `schema`, so piping it into the sibling `import-inspection` command fails with 'Inspection file has no schema.' Reproduced: `trireme inspect chart --json > doc.json && trireme import-inspection doc.json`. Both commands use the word inspection, so users will try this round trip. Either emit the versioned `trireme.inspection/1` wrapper (with nested `i",
+              "evidence": "\"{{\\\"ok\\\":true,\\\"valid\\\":true,\\\"fingerprint\\\":{},\\\"width\\\":{},\\\"height\\\":{},\\\"cells\\\":{},\\\"land\\\":{},\\\"currents\\\":{},\\\"wind\\\":[{},{}]}}\",",
+              "commit": "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+              "hunk": "c7c93c1493bc:src/web.rs#2",
               "symbol": "",
               "introduced": true,
               "reproducible": false,
@@ -126,9 +136,9 @@
           "pushed": false,
           "push_error": null,
           "empty": true,
-          "timestamp": "2026-11-19T19:49:26"
+          "timestamp": "2026-11-19T19:54:59"
         },
-        "timestamp": "2026-11-19T19:49:26"
+        "timestamp": "2026-11-19T19:54:59"
       },
       "history": [
         {
@@ -473,54 +483,178 @@
             "timestamp": "2026-11-19T19:49:26"
           },
           "timestamp": "2026-11-19T19:49:26"
+        },
+        {
+          "run": "run-1",
+          "stage": 3,
+          "window": 9,
+          "commits": [
+            "52168771d1c644a58b8bb55321d02a065970e96e",
+            "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+            "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+            "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+            "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
+            "4adde7556c1488fce22440d639e86411563d69f8",
+            "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+            "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+            "c7c93c1493bc262e96f6e31036f741064b31ceb0"
+          ],
+          "new_commits": [
+            "52168771d1c644a58b8bb55321d02a065970e96e",
+            "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+            "c7c93c1493bc262e96f6e31036f741064b31ceb0"
+          ],
+          "prior_commits": [
+            "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
+            "4adde7556c1488fce22440d639e86411563d69f8",
+            "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+            "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+            "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+            "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+          ],
+          "findings": [
+            {
+              "code": "review-inspect-not-importable",
+              "category": "improvement",
+              "severity": "low",
+              "path": "src/web.rs",
+              "line": 261,
+              "message": "The `inspect --json` document is flat and has no `schema`, so piping it into the sibling `import-inspection` command fails with 'Inspection file has no schema.' Reproduced: `trireme inspect chart --json > doc.json && trireme import-inspection doc.json`. Both commands use the word inspection, so users will try this round trip. Either emit the versioned `trireme.inspection/1` wrapper (with nested `i",
+              "evidence": "\"{{\\\"ok\\\":true,\\\"valid\\\":true,\\\"fingerprint\\\":{},\\\"width\\\":{},\\\"height\\\":{},\\\"cells\\\":{},\\\"land\\\":{},\\\"currents\\\":{},\\\"wind\\\":[{},{}]}}\",",
+              "commit": "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+              "hunk": "c7c93c1493bc:src/web.rs#2",
+              "symbol": "",
+              "introduced": true,
+              "reproducible": false,
+              "fixable": false,
+              "interaction": "",
+              "repaired": false,
+              "source": "review",
+              "patch_old": "",
+              "patch_new": ""
+            }
+          ],
+          "repairs": [],
+          "counts": {
+            "improvement": 1
+          },
+          "reviewed": 8,
+          "review": {
+            "status": "reviewed",
+            "rejected": [],
+            "files": [
+              ".aikit/codebase_map.md",
+              "README.md",
+              "inventory.py",
+              "src/cli.rs",
+              "src/web.rs",
+              "tests/cli.rs",
+              "web/app.js",
+              "web/app.test.js"
+            ],
+            "packet": ".aikit/reforge.reviews/stage-run-1-3-52168771d1c6.md",
+            "redacted": 0,
+            "coverage": {
+              "reported": 13,
+              "total": 13,
+              "carried": [],
+              "missing": [],
+              "unknown": [],
+              "invalid": []
+            },
+            "findings": [
+              {
+                "code": "review-inspect-not-importable",
+                "category": "improvement",
+                "severity": "low",
+                "path": "src/web.rs",
+                "line": 261,
+                "message": "The `inspect --json` document is flat and has no `schema`, so piping it into the sibling `import-inspection` command fails with 'Inspection file has no schema.' Reproduced: `trireme inspect chart --json > doc.json && trireme import-inspection doc.json`. Both commands use the word inspection, so users will try this round trip. Either emit the versioned `trireme.inspection/1` wrapper (with nested `i",
+                "evidence": "\"{{\\\"ok\\\":true,\\\"valid\\\":true,\\\"fingerprint\\\":{},\\\"width\\\":{},\\\"height\\\":{},\\\"cells\\\":{},\\\"land\\\":{},\\\"currents\\\":{},\\\"wind\\\":[{},{}]}}\",",
+                "commit": "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+                "hunk": "c7c93c1493bc:src/web.rs#2",
+                "symbol": "",
+                "introduced": true,
+                "reproducible": false,
+                "fixable": false,
+                "interaction": "",
+                "repaired": false,
+                "source": "review",
+                "patch_old": "",
+                "patch_new": ""
+              }
+            ],
+            "attestations": []
+          },
+          "skipped": [],
+          "tests": {},
+          "gates": {},
+          "delivery": {
+            "commit": "",
+            "short": "",
+            "pushed": false,
+            "push_error": null,
+            "empty": true,
+            "timestamp": "2026-11-19T19:54:59"
+          },
+          "timestamp": "2026-11-19T19:54:59"
         }
       ],
-      "total_commits": 79
+      "total_commits": 81
     }
   ],
-  "stage": 2,
-  "window": 6,
+  "stage": 3,
+  "window": 9,
   "audited_commits": [
     "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
     "4adde7556c1488fce22440d639e86411563d69f8",
     "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
     "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
     "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
-    "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+    "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+    "52168771d1c644a58b8bb55321d02a065970e96e",
+    "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+    "c7c93c1493bc262e96f6e31036f741064b31ceb0"
   ],
   "last_audit": {
     "run": "run-1",
-    "stage": 2,
-    "window": 6,
+    "stage": 3,
+    "window": 9,
     "commits": [
+      "52168771d1c644a58b8bb55321d02a065970e96e",
+      "35d978376c33adb345ed2cb1ac2adf2774894e3b",
       "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
       "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
       "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
       "4adde7556c1488fce22440d639e86411563d69f8",
       "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
-      "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+      "e69d45d356ba47187d169adc39fb1ecdfda5c481",
+      "c7c93c1493bc262e96f6e31036f741064b31ceb0"
     ],
     "new_commits": [
-      "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
-      "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
-      "e69d45d356ba47187d169adc39fb1ecdfda5c481"
+      "52168771d1c644a58b8bb55321d02a065970e96e",
+      "35d978376c33adb345ed2cb1ac2adf2774894e3b",
+      "c7c93c1493bc262e96f6e31036f741064b31ceb0"
     ],
     "prior_commits": [
       "87e2fb156ecc69049c9b8c29ce284b23b46ef82e",
       "4adde7556c1488fce22440d639e86411563d69f8",
-      "b6004b6ad4a95969d8955c4a48009e75f34f3abf"
+      "b6004b6ad4a95969d8955c4a48009e75f34f3abf",
+      "e75f4c8c9072dcdf2673fae2640fb52832e63bd2",
+      "9cdd5df65b7843584c6fb5c93d0157c1b50d42db",
+      "e69d45d356ba47187d169adc39fb1ecdfda5c481"
     ],
     "findings": [
       {
-        "code": "review-tautological-assertion",
+        "code": "review-inspect-not-importable",
         "category": "improvement",
         "severity": "low",
-        "path": "web/app.test.js",
-        "line": 251,
-        "message": "This assertion calls inspectionToJson twice and compares the two results, so it always passes even if the formatter changes shape or breaks. Use a fixed expected string or re-serialize a known document and assert stable fields instead.",
-        "evidence": "assert.equal(inspectionToJson(inspect), inspectionToJson(inspect));",
-        "commit": "e69d45d356ba47187d169adc39fb1ecdfda5c481",
-        "hunk": "e69d45d356ba:web/app.test.js#3",
+        "path": "src/web.rs",
+        "line": 261,
+        "message": "The `inspect --json` document is flat and has no `schema`, so piping it into the sibling `import-inspection` command fails with 'Inspection file has no schema.' Reproduced: `trireme inspect chart --json > doc.json && trireme import-inspection doc.json`. Both commands use the word inspection, so users will try this round trip. Either emit the versioned `trireme.inspection/1` wrapper (with nested `i",
+        "evidence": "\"{{\\\"ok\\\":true,\\\"valid\\\":true,\\\"fingerprint\\\":{},\\\"width\\\":{},\\\"height\\\":{},\\\"cells\\\":{},\\\"land\\\":{},\\\"currents\\\":{},\\\"wind\\\":[{},{}]}}\",",
+        "commit": "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+        "hunk": "c7c93c1493bc:src/web.rs#2",
         "symbol": "",
         "introduced": true,
         "reproducible": false,
@@ -536,7 +670,7 @@
     "counts": {
       "improvement": 1
     },
-    "reviewed": 7,
+    "reviewed": 8,
     "review": {
       "status": "reviewed",
       "rejected": [],
@@ -544,16 +678,17 @@
         ".aikit/codebase_map.md",
         "README.md",
         "inventory.py",
+        "src/cli.rs",
+        "src/web.rs",
         "tests/cli.rs",
         "web/app.js",
-        "web/app.test.js",
-        "web/index.html"
+        "web/app.test.js"
       ],
-      "packet": ".aikit/reforge.reviews/stage-run-1-2-e75f4c8c9072.md",
+      "packet": ".aikit/reforge.reviews/stage-run-1-3-52168771d1c6.md",
       "redacted": 0,
       "coverage": {
-        "reported": 18,
-        "total": 18,
+        "reported": 13,
+        "total": 13,
         "carried": [],
         "missing": [],
         "unknown": [],
@@ -561,15 +696,15 @@
       },
       "findings": [
         {
-          "code": "review-tautological-assertion",
+          "code": "review-inspect-not-importable",
           "category": "improvement",
           "severity": "low",
-          "path": "web/app.test.js",
-          "line": 251,
-          "message": "This assertion calls inspectionToJson twice and compares the two results, so it always passes even if the formatter changes shape or breaks. Use a fixed expected string or re-serialize a known document and assert stable fields instead.",
-          "evidence": "assert.equal(inspectionToJson(inspect), inspectionToJson(inspect));",
-          "commit": "e69d45d356ba47187d169adc39fb1ecdfda5c481",
-          "hunk": "e69d45d356ba:web/app.test.js#3",
+          "path": "src/web.rs",
+          "line": 261,
+          "message": "The `inspect --json` document is flat and has no `schema`, so piping it into the sibling `import-inspection` command fails with 'Inspection file has no schema.' Reproduced: `trireme inspect chart --json > doc.json && trireme import-inspection doc.json`. Both commands use the word inspection, so users will try this round trip. Either emit the versioned `trireme.inspection/1` wrapper (with nested `i",
+          "evidence": "\"{{\\\"ok\\\":true,\\\"valid\\\":true,\\\"fingerprint\\\":{},\\\"width\\\":{},\\\"height\\\":{},\\\"cells\\\":{},\\\"land\\\":{},\\\"currents\\\":{},\\\"wind\\\":[{},{}]}}\",",
+          "commit": "c7c93c1493bc262e96f6e31036f741064b31ceb0",
+          "hunk": "c7c93c1493bc:src/web.rs#2",
           "symbol": "",
           "introduced": true,
           "reproducible": false,
@@ -592,9 +727,9 @@
       "pushed": false,
       "push_error": null,
       "empty": true,
-      "timestamp": "2026-11-19T19:49:26"
+      "timestamp": "2026-11-19T19:54:59"
     },
-    "timestamp": "2026-11-19T19:49:26"
+    "timestamp": "2026-11-19T19:54:59"
   },
   "history": []
 }
