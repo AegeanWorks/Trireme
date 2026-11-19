@@ -27,6 +27,7 @@ const HELP_SECTIONS = {
     ["Import / Export JSON", "Move route history between browsers"],
     ["Filter / Sort history", "Search and order saved plans"],
     ["Reset local data", "Click twice to clear chart, presets and history"],
+    ["Copy all data", "Copy a versioned JSON bundle to the clipboard"],
   ],
 };
 
@@ -680,6 +681,59 @@ function removeLocalPreset(presets, name) {
   );
 }
 
+function buildDataBundle(chartText, fromValue, toValue, presets, history) {
+  const cleanChart = validateChartText(chartText);
+  point(fromValue);
+  point(toValue);
+  const presetDoc = localPresetsToJson(
+    parseLocalPresets(localPresetsToJson(Array.isArray(presets) ? presets : []))
+  );
+  const historyEntries = Array.isArray(history) ? history : [];
+  const cleanHistory = historyEntries.length
+    ? parseHistoryExport(historyToJson(historyEntries))
+    : [];
+  return {
+    schema: "trireme.bundle/1",
+    chart: { chart: cleanChart, from: fromValue, to: toValue },
+    presets: JSON.parse(presetDoc).presets,
+    history: cleanHistory,
+  };
+}
+
+function formatDataBundle(bundle) {
+  if (!bundle || bundle.schema !== "trireme.bundle/1") {
+    throw new Error("Only a trireme.bundle/1 document can be formatted.");
+  }
+  return JSON.stringify(bundle, null, 2) + "\n";
+}
+
+function parseDataBundle(raw) {
+  let document;
+  try {
+    document = JSON.parse(String(raw));
+  } catch (error) {
+    throw new Error("Bundle is not valid JSON.");
+  }
+  if (!document || document.schema !== "trireme.bundle/1") {
+    throw new Error("Bundle must have schema 'trireme.bundle/1'.");
+  }
+  try {
+    return buildDataBundle(
+      document.chart && document.chart.chart,
+      document.chart && document.chart.from,
+      document.chart && document.chart.to,
+      document.presets,
+      document.history
+    );
+  } catch (error) {
+    throw new Error("Bundle contains an invalid chart, endpoints, presets or history.");
+  }
+}
+
+function bundleFilename() {
+  return "trireme-bundle.json";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -705,6 +759,10 @@ if (typeof module !== "undefined" && module.exports) {
     LOCAL_DATA_KEYS,
     resetPlan,
     formatResetSummary,
+    buildDataBundle,
+    formatDataBundle,
+    parseDataBundle,
+    bundleFilename,
     normalizePresetName,
     buildLocalPreset,
     parseLocalPresets,
@@ -797,6 +855,32 @@ if (typeof document !== "undefined") {
 
   function closeHelp() {
     helpPanel.hidden = true;
+  }
+
+  async function copyDataBundle() {
+    try {
+      const bundle = buildDataBundle(
+        chart.value,
+        from.value,
+        to.value,
+        storedPresets(),
+        parseHistory(localStorage.getItem(HISTORY_KEY))
+      );
+      const text = formatDataBundle(bundle);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Copied " + bundleFilename() + " (" + bundle.presets.length + " presets, " + bundle.history.length + " plans).", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   function handleResetLocal() {
@@ -1326,6 +1410,7 @@ if (typeof document !== "undefined") {
   document.getElementById("open-help").addEventListener("click", openHelp);
   document.getElementById("close-help").addEventListener("click", closeHelp);
   document.getElementById("reset-local").addEventListener("click", handleResetLocal);
+  document.getElementById("copy-bundle").addEventListener("click", copyDataBundle);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !helpPanel.hidden) {
       closeHelp();

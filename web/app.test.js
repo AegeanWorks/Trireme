@@ -54,6 +54,10 @@ const {
   LOCAL_DATA_KEYS,
   resetPlan,
   formatResetSummary,
+  buildDataBundle,
+  formatDataBundle,
+  parseDataBundle,
+  bundleFilename,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -79,7 +83,7 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
-    "open-help", "help-panel", "help-text", "close-help", "reset-local",
+    "open-help", "help-panel", "help-text", "close-help", "copy-bundle", "reset-local",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
     "file", "plan", "compare", "save",
@@ -590,6 +594,29 @@ test("reset plan names the local storage keys deterministically", () => {
   assert.match(formatHelpText(), /Reset local data/);
 });
 
+test("a data bundle versions and round-trips chart, presets and history", () => {
+  const chartText = "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n";
+  const preset = buildLocalPreset("My Route", chartText, "0,0", "3,0");
+  const entry = historyEntry({ time: 300, steps: [] }, { chart: chartText, from: [0, 0], to: [3, 0] }, 7);
+  const bundle = buildDataBundle(chartText, "0,0", "3,0", [preset], [entry]);
+  assert.equal(bundle.schema, "trireme.bundle/1");
+  assert.deepEqual(bundle.chart, { chart: chartText, from: "0,0", to: "3,0" });
+  assert.equal(bundle.presets.length, 1);
+  assert.equal(bundle.history.length, 1);
+  const text = formatDataBundle(bundle);
+  assert.deepEqual(parseDataBundle(text), bundle);
+  assert.equal(text, formatDataBundle(bundle));
+  assert.equal(bundleFilename(), "trireme-bundle.json");
+  assert.throws(() => parseDataBundle("nope"), /not valid JSON/);
+  assert.throws(() => parseDataBundle('{"schema":"other"}'), /schema/);
+  assert.throws(() => formatDataBundle({ schema: "other" }), /trireme.bundle\/1/);
+  const broken = JSON.parse(text);
+  broken.chart.chart = "grid 2 2\nwind 0 0\n";
+  assert.throws(() => parseDataBundle(JSON.stringify(broken)), /invalid chart/);
+  const empty = buildDataBundle(chartText, "0,0", "3,0", [], []);
+  assert.deepEqual(parseDataBundle(formatDataBundle(empty)), empty);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -617,6 +644,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /removeLocalPreset\(storedPresets\(\), name\)/);
   assert.match(source, /getElementById\("reset-local"\)\.addEventListener\("click", handleResetLocal\)/);
   assert.match(source, /for \(const key of keys\) \{/);
+  assert.match(source, /getElementById\("copy-bundle"\)\.addEventListener\("click", copyDataBundle\)/);
+  assert.match(source, /buildDataBundle\(/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
