@@ -22,6 +22,7 @@ const {
   appendHistory,
   parseHistory,
   formatHistoryEntry,
+  restoreEntry,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -151,7 +152,11 @@ test("CSV cells quote commas and quotes, and filenames end in .csv", () => {
 
 test("history entries capture the query and the plan", () => {
   const route = { time: 647, steps: ["E", "NE"] };
-  const query = { from: [0, 2], to: [7, 0] };
+  const query = {
+    chart: "TRIREME-CHART v1\ngrid 8 4\nwind 1 0\n",
+    from: [0, 2],
+    to: [7, 0],
+  };
   const entry = historyEntry(route, query, 1763550000000, "calm water compared");
   assert.deepEqual(entry, {
     at: 1763550000000,
@@ -161,6 +166,7 @@ test("history entries capture the query and the plan", () => {
     steps: 2,
     heading: "E NE",
     note: "calm water compared",
+    chart: query.chart,
   });
   assert.equal(historyEntry({ time: 0, steps: [] }, query, 1).heading, "(already there)");
   assert.throws(() => historyEntry(null, query, 1), /No route/);
@@ -203,6 +209,30 @@ test("history rows are stable and readable", () => {
   );
 });
 
+test("restore reloads the stored chart and endpoints", () => {
+  const chartText = "TRIREME-CHART v1\r\ngrid 8 4\r\nwind 1 0\r\n";
+  const entry = historyEntry(
+    { time: 647, steps: ["E"] },
+    { chart: chartText, from: [0, 2], to: [7, 0] },
+    7
+  );
+  const restored = restoreEntry(entry);
+  assert.deepEqual(restored, {
+    chart: "TRIREME-CHART v1\ngrid 8 4\nwind 1 0\n",
+    from: "0,2",
+    to: "7,0",
+  });
+  assert.equal(restored.from, entry.from.join(","));
+  assert.throws(() => restoreEntry(null), /no chart/);
+  assert.throws(() => restoreEntry({ chart: "" }), /no chart/);
+  assert.throws(
+    () => restoreEntry({ chart: chartText, from: "bad", to: "1,1" }),
+    /X,Y/
+  );
+  const roundTrip = parseHistory(JSON.stringify([entry]));
+  assert.deepEqual(restoreEntry(roundTrip[0]), restored);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -215,6 +245,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /const clearHistory = document\.getElementById\("clear-history"\)/);
   assert.match(source, /clearHistory\.addEventListener\("click"/);
   assert.match(source, /localStorage\.setItem\(HISTORY_KEY/);
+  assert.match(source, /restore\.dataset\.index = String\(index\)/);
+  assert.match(source, /historyList\.addEventListener\("click"/);
+  assert.match(source, /function restoreHistory\(index\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

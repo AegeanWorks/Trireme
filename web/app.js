@@ -140,7 +140,22 @@ function historyEntry(route, query, at, note) {
     steps: route.steps.length,
     heading: route.steps.join(" ") || "(already there)",
     note: String(note || ""),
+    chart: String((query && query.chart) || ""),
   };
+}
+
+function restoreEntry(entry) {
+  if (!entry || typeof entry.chart !== "string" || entry.chart.length === 0) {
+    throw new Error("This history entry has no chart to restore.");
+  }
+  const chart = validateChartText(entry.chart);
+  const asText = (point) =>
+    Array.isArray(point) ? point.join(",") : String(point || "");
+  const from = asText(entry.from);
+  const to = asText(entry.to);
+  point(from);
+  point(to);
+  return { chart, from, to };
 }
 
 function appendHistory(entries, entry, limit) {
@@ -197,6 +212,7 @@ if (typeof module !== "undefined" && module.exports) {
     appendHistory,
     parseHistory,
     formatHistoryEntry,
+    restoreEntry,
     PRESETS,
     point,
     applyPreset,
@@ -247,18 +263,47 @@ if (typeof document !== "undefined") {
       historyList.appendChild(empty);
       return;
     }
-    for (const entry of entries) {
+    entries.forEach((entry, index) => {
       const row = document.createElement("li");
-      row.textContent = formatHistoryEntry(entry);
+      const label = document.createElement("span");
+      label.className = "history-text";
+      label.textContent = formatHistoryEntry(entry);
+      const restore = document.createElement("button");
+      restore.type = "button";
+      restore.className = "restore secondary";
+      restore.textContent = "Restore";
+      restore.dataset.index = String(index);
+      row.appendChild(label);
+      row.appendChild(restore);
       historyList.appendChild(row);
-    }
+    });
   }
 
   function remember(query, route, note) {
     const entry = historyEntry(route, query, Date.now(), note);
     const updated = appendHistory(parseHistory(localStorage.getItem(HISTORY_KEY)), entry);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-    renderHistory();
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+      renderHistory();
+    } catch (error) {
+      setState("History storage is full; this plan was not saved.", "bad");
+    }
+  }
+
+  function restoreHistory(index) {
+    const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    const entry = entries[index];
+    try {
+      const restored = restoreEntry(entry);
+      chart.value = restored.chart;
+      from.value = restored.from;
+      to.value = restored.to;
+      chartName = "restored-chart.txt";
+      reset();
+      setState("History entry restored into the editor.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   function show(route) {
@@ -469,6 +514,12 @@ if (typeof document !== "undefined") {
     localStorage.removeItem(HISTORY_KEY);
     renderHistory();
     setState("Route history cleared.", "good");
+  });
+  historyList.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-index]");
+    if (button) {
+      restoreHistory(Number(button.dataset.index));
+    }
   });
   renderHistory();
   preset.addEventListener("change", () => {
