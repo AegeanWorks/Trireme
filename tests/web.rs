@@ -47,6 +47,21 @@ fn server_serves_the_page_and_answers_a_route() {
 }
 
 #[test]
+fn server_returns_chart_fingerprints_over_http() {
+    let address = spawn_server();
+    let body = br#"{"chart":"TRIREME-CHART v1\ngrid 3 2\nwind 0 0\n"}"#;
+    let request = format!(
+        "POST /api/fingerprint HTTP/1.1\r\nHost: test\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        String::from_utf8_lossy(body)
+    );
+    let answer = ask(address, request.as_bytes());
+    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n"), "{answer}");
+    assert!(answer.contains("\"ok\":true"));
+    assert!(answer.contains("\"fingerprint\":\""));
+}
+
+#[test]
 fn server_compares_over_http() {
     let address = spawn_server();
     let body = br#"{"chart":"TRIREME-CHART v1\ngrid 5 1\nwind 1 0\n","from":[0,0],"to":[4,0]}"#;

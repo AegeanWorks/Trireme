@@ -30,7 +30,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
 
 | Command | What it does |
 |---|---|
-| `trireme chart <chart> [--json] [--calm\|--stats\|--issues\|--normalize]` | Describe the chart; `--calm` prints a still-water copy, `--stats` prints counts, `--issues` prints validation problems, `--normalize` prints a canonical sorted copy. |
+| `trireme chart <chart> [--json] [--calm\|--stats\|--issues\|--normalize\|--fingerprint]` | Describe the chart; `--fingerprint` prints a stable ID of its canonical form. Other flags print a calm copy, counts, issues or a sorted copy. |
 | `trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]` | Print the headings, waypoints, total time, per-step times and cells explored; `--json` emits the shared route document including `step_times` (ADR-005). |
 | `trireme compare <chart> --from X,Y --to X,Y [--json]` | Plan the same query with wind/currents and against the Rust calm baseline, then report the saving. |
 | `trireme serve [--port N] [--project DIR]` | Serve the browser UI from `DIR/web` on loopback (default `7878`). |

@@ -15,7 +15,7 @@ trireme — offline sailing route planner for small sea charts
 
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
-  trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize]
+  trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -211,28 +211,51 @@ fn cmd_chart(args: &[&str]) -> i32 {
     let stats_output = args.iter().any(|arg| *arg == "--stats");
     let issues_output = args.iter().any(|arg| *arg == "--issues");
     let normalize_output = args.iter().any(|arg| *arg == "--normalize");
+    let fingerprint_output = args.iter().any(|arg| *arg == "--fingerprint");
     let paths: Vec<&str> = args
         .iter()
         .copied()
-        .filter(|arg| !matches!(*arg, "--json" | "--calm" | "--stats" | "--issues" | "--normalize"))
+        .filter(|arg| !matches!(*arg, "--json" | "--calm" | "--stats" | "--issues" | "--normalize" | "--fingerprint"))
         .collect();
     if paths.len() != 1 || paths[0].starts_with('-') {
         return fail(
             "chart needs exactly one chart file",
             "Describing a chart requires a single source.",
-            "Use: trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize]",
+            "Use: trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]",
         );
     }
-    let views = [calm_output, stats_output, issues_output, normalize_output]
+    let views = [calm_output, stats_output, issues_output, normalize_output, fingerprint_output]
         .iter()
         .filter(|selected| **selected)
         .count();
     if views > 1 {
         return fail(
-            "--calm, --stats, --issues and --normalize cannot be combined",
+            "chart view flags cannot be combined",
             "Each flag selects one view of the chart.",
             "Run the command once per view.",
         );
+    }
+    if fingerprint_output {
+        let raw = match fs::read_to_string(paths[0]) {
+            Ok(raw) => raw,
+            Err(err) => {
+                return fail(
+                    &format!("cannot read chart '{}': {err}", paths[0]),
+                    "Fingerprinting needs the original chart text.",
+                    "Check the path and permissions, then retry.",
+                )
+            }
+        };
+        let value = match chart::fingerprint(&raw) {
+            Ok(value) => value,
+            Err(err) => return fail(&err, "The chart must be valid before it can be fingerprinted.", "Fix the named chart problem and retry."),
+        };
+        if json_output {
+            println!("{{\"ok\":true,\"fingerprint\":{}}}", json::quote(&value));
+        } else {
+            println!("{value}");
+        }
+        return 0;
     }
     if normalize_output {
         let raw = match fs::read_to_string(paths[0]) {

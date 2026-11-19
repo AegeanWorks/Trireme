@@ -107,6 +107,21 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn chart_fingerprint_is_stable_across_comment_and_order_changes() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 3 3\nwind 1 0\nland 2 2\n");
+    let other = scratch.chart("# note\nland 2 2\nwind 1 0\ngrid 3 3\n");
+    let first = ok_text(&run(&["chart", &chart, "--fingerprint"]));
+    assert_eq!(first.trim().len(), 16);
+    assert_eq!(ok_text(&run(&["chart", &other, "--fingerprint"])).trim(), first.trim());
+    let json = ok_text(&run(&["chart", &chart, "--fingerprint", "--json"]));
+    assert!(json.contains("\"ok\":true"));
+    assert!(json.contains(&format!("\"fingerprint\":\"{}\"", first.trim())));
+    let combined = run(&["chart", &chart, "--fingerprint", "--stats"]);
+    assert_eq!(combined.status.code(), Some(2));
+}
+
+#[test]
 fn chart_normalize_produces_a_canonical_chart() {
     let scratch = Scratch::new();
     let chart = scratch.chart("current 1 1 0 1\nwind 1 0\nland 2 2\ngrid 3 3\n");

@@ -250,6 +250,20 @@ pub fn normalize(text: &str) -> Result<String, String> {
     Ok(to_text(&parse(text)?))
 }
 
+/// A stable 64-bit FNV-1a fingerprint of a chart's canonical form.
+///
+/// Comments and directive order do not affect it, so the same sea always has
+/// the same identity across the CLI and the browser.
+pub fn fingerprint(text: &str) -> Result<String, String> {
+    let canonical = normalize(text)?;
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in canonical.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    Ok(format!("{hash:016x}"))
+}
+
 /// One line-numbered problem found in a chart.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChartIssue {
@@ -407,6 +421,18 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn fingerprint_ignores_comments_and_order() {
+        let a = "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\nland 2 2\n";
+        let b = "# note\nTRIREME-CHART v1\nland 2 2\nwind 1 0\ngrid 4 3\n";
+        let first = fingerprint(a).unwrap();
+        assert_eq!(first.len(), 16);
+        assert!(first.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert_eq!(fingerprint(b).unwrap(), first);
+        assert_ne!(fingerprint("TRIREME-CHART v1\ngrid 5 3\nwind 1 0\n").unwrap(), first);
+        assert!(fingerprint("grid 2 2\nwind 0 0\n").is_err());
     }
 
     #[test]

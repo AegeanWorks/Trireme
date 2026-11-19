@@ -74,6 +74,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/issues") => api_issues(&request.body),
         ("POST", "/api/normalize") => api_normalize(&request.body),
         ("POST", "/api/compare") => api_compare(&request.body),
+        ("POST", "/api/fingerprint") => api_fingerprint(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -207,6 +208,30 @@ pub fn api_calm(body: &str) -> String {
             200,
             "application/json",
             &format!("{{\"ok\":true,\"chart\":{}}}", json::quote(&still)),
+        ),
+        Err(err) => response(400, "application/json", &error_json(&err)),
+    }
+}
+
+/// Returns the stable fingerprint of a chart from the Rust core.
+pub fn api_fingerprint(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    match chart::fingerprint(&raw) {
+        Ok(value) => response(
+            200,
+            "application/json",
+            &format!("{{\"ok\":true,\"fingerprint\":{}}}", json::quote(&value)),
         ),
         Err(err) => response(400, "application/json", &error_json(&err)),
     }
@@ -482,6 +507,18 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn fingerprint_endpoint_returns_a_stable_id() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 4 3\\nwind 1 0\\n\"}";
+        let out = api_fingerprint(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("\"fingerprint\":\""));
+        assert_eq!(out, api_fingerprint(body));
+        assert!(api_fingerprint("{}").starts_with("HTTP/1.1 400"));
+        assert!(api_fingerprint("{\"chart\":\"grid 2 2\"}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]
