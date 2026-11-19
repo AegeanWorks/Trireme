@@ -39,6 +39,10 @@ land 4 1
 current 5 2 0 -1
 current 6 1 -1 0</textarea>
       </label>
+      <label class="field">
+        <span>Import chart file (.txt)</span>
+        <input type="file" id="file" accept=".txt,text/plain">
+      </label>
       <div class="endpoints">
         <label class="field">
           <span>From (X,Y)</span>
@@ -53,9 +57,11 @@ current 6 1 -1 0</textarea>
         <button id="plan" type="button">Plan route</button>
         <button id="save" type="button" class="secondary">Save chart</button>
         <button id="load" type="button" class="secondary">Load saved</button>
+        <button id="import" type="button" class="secondary">Import file</button>
+        <button id="download" type="button" class="secondary">Download chart</button>
         <button id="export" type="button" class="secondary">Export route</button>
       </div>
-      <p class="hint">Presets are examples; Save/Load keep a chart in this browser only.</p>
+      <p class="hint">Presets are examples; Save/Load keep a chart in this browser only. Import reads a .txt chart from disk; Download chart writes the current one back.</p>
       <p class="hint">Tip: press Ctrl+Enter to plan.</p>
     </section>
 

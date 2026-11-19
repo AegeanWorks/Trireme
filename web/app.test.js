@@ -5,7 +5,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { PRESETS, point, applyPreset } = require("./app.js");
+const {
+  PRESETS,
+  point,
+  applyPreset,
+  chartFilename,
+  validateChartText,
+} = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
   assert.deepEqual(point("0,2"), [0, 2]);
@@ -29,7 +35,10 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
-  for (const id of ["chart", "from", "to", "preset", "plan", "save", "load", "export", "map"]) {
+  for (const id of [
+    "chart", "from", "to", "preset", "file", "plan", "save", "load",
+    "import", "download", "export", "map",
+  ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
   }
 });
@@ -38,4 +47,38 @@ test("the client sends endpoints as coordinate arrays", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /from: point\(from\.value\)/);
   assert.match(source, /to: point\(to\.value\)/);
+});
+
+test("chart filenames keep only a safe basename", () => {
+  assert.equal(chartFilename("C:\\charts\\my chart.txt"), "my_chart.txt");
+  assert.equal(chartFilename("../evil.txt"), "evil.txt");
+  assert.equal(chartFilename("route"), "route.txt");
+  assert.equal(chartFilename(""), "chart.txt");
+  assert.equal(chartFilename("..hidden"), "hidden.txt");
+});
+
+test("chart import validates the header grid and wind", () => {
+  const good = "TRIREME-CHART v1\r\n# note\r\ngrid 4 3\r\nwind 1 0\r\n";
+  assert.equal(
+    validateChartText(good),
+    "TRIREME-CHART v1\n# note\ngrid 4 3\nwind 1 0\n"
+  );
+  for (const bad of [
+    "grid 4 3\nwind 0 0\n",
+    "TRIREME-CHART v1\nwind 0 0\n",
+    "TRIREME-CHART v1\ngrid 4 3\n",
+    "TRIREME-CHART v1\ngrid 4 3\nwind 2 0\n",
+    "x".repeat(1000001),
+  ]) {
+    assert.throws(() => validateChartText(bad));
+  }
+});
+
+test("the page wires file import and chart download", () => {
+  const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
+  assert.match(source, /getElementById\("import"\)\.addEventListener/);
+  assert.match(source, /getElementById\("download"\)\.addEventListener/);
+  assert.match(source, /link\.download = chartName/);
+  const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+  assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

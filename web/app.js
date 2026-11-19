@@ -42,8 +42,44 @@ function applyPreset(name) {
   return { chart: preset.chart, from: preset.from, to: preset.to };
 }
 
+function chartFilename(name) {
+  const base = String(name || "").split(/[\\/]/).pop() || "";
+  const cleaned = base.replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "");
+  if (!cleaned) {
+    return "chart.txt";
+  }
+  return cleaned.endsWith(".txt") ? cleaned : cleaned + ".txt";
+}
+
+function validateChartText(text) {
+  const normalized = String(text).replace(/\r\n?/g, "\n");
+  if (normalized.length > 1000000) {
+    throw new Error("Chart is too large; the browser limit is 1 MB.");
+  }
+  const lines = normalized.split("\n").filter((line) => {
+    const trimmed = line.trim();
+    return trimmed && !trimmed.startsWith("#");
+  });
+  if (lines[0] !== "TRIREME-CHART v1") {
+    throw new Error("Chart must start with 'TRIREME-CHART v1' after any comments.");
+  }
+  if (!lines.some((line) => /^grid\s+\d+\s+\d+$/.test(line.trim()))) {
+    throw new Error("Chart needs a 'grid <width> <height>' line.");
+  }
+  if (!lines.some((line) => /^wind\s+-?[01]\s+-?[01]$/.test(line.trim()))) {
+    throw new Error("Chart needs a 'wind <dx> <dy>' line with components -1..1.");
+  }
+  return normalized;
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { PRESETS, point, applyPreset };
+  module.exports = {
+    PRESETS,
+    point,
+    applyPreset,
+    chartFilename,
+    validateChartText,
+  };
 }
 
 if (typeof document !== "undefined") {
@@ -51,6 +87,7 @@ if (typeof document !== "undefined") {
   const from = document.getElementById("from");
   const to = document.getElementById("to");
   const preset = document.getElementById("preset");
+  const file = document.getElementById("file");
   const status = document.getElementById("status");
   const time = document.getElementById("time");
   const stepsCount = document.getElementById("steps-count");
@@ -59,6 +96,7 @@ if (typeof document !== "undefined") {
   const waypoints = document.getElementById("waypoints");
   const map = document.getElementById("map");
   let lastRoute = null;
+  let chartName = "chart.txt";
 
   function setState(message, kind) {
     status.textContent = message;
@@ -109,7 +147,43 @@ if (typeof document !== "undefined") {
     from.value = localStorage.getItem("trireme.from") || "0,0";
     to.value = localStorage.getItem("trireme.to") || "1,1";
     setState("Saved chart loaded.", "good");
+    chartName = "chart.txt";
     reset();
+  }
+
+  async function importChart() {
+    const picked = file.files && file.files[0];
+    if (!picked) {
+      setState("Choose a .txt chart file first.", "bad");
+      return;
+    }
+    try {
+      const text = validateChartText(await picked.text());
+      chart.value = text;
+      chartName = chartFilename(picked.name);
+      file.value = "";
+      setState("Imported " + chartName + ".", "good");
+      reset();
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  function downloadChart() {
+    try {
+      validateChartText(chart.value);
+    } catch (error) {
+      setState(String(error.message), "bad");
+      return;
+    }
+    const blob = new Blob([chart.value], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = chartName;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Chart downloaded as " + chartName + ".", "good");
   }
 
   function exportRoute() {
@@ -161,12 +235,15 @@ if (typeof document !== "undefined") {
   document.getElementById("plan").addEventListener("click", plan);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);
+  document.getElementById("import").addEventListener("click", importChart);
+  document.getElementById("download").addEventListener("click", downloadChart);
   document.getElementById("export").addEventListener("click", exportRoute);
   preset.addEventListener("change", () => {
     const selection = applyPreset(preset.value);
     chart.value = selection.chart;
     from.value = selection.from;
     to.value = selection.to;
+    chartName = "chart-" + preset.value + ".txt";
     setState("Preset loaded.", "busy");
     reset();
   });

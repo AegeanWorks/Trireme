@@ -23,7 +23,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
   ```bash
   cargo run -- serve --project .     # http://127.0.0.1:7878/
   ```
-  Pick a preset, edit the chart and endpoints, press **Plan route**, and read the headings, waypoints and ASCII map on the right. **Save chart** / **Load saved** keep a chart in this browser's local storage; **Export route** downloads the last answer as JSON. The page calls `/api/route`, which shares its route document with `route --json`.
+  Pick a preset, edit the chart and endpoints, press **Plan route**, and read the headings, waypoints and ASCII map on the right. **Import file** reads a `.txt` chart from disk (with header/grid/wind validation); **Download chart** writes the current chart back as text. **Save chart** / **Load saved** keep a chart in this browser's local storage; **Export route** downloads the last answer as JSON. The page calls `/api/route`, which shares its route document with `route --json`.
 - **Client logic proof** (Node 18+): `node --test web/app.test.js`
 
 ### 🛠️ Commands
