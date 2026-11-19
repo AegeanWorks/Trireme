@@ -107,6 +107,7 @@ const {
   diffSummaryRequestBody,
   parseDiffSummaryResponse,
   formatDiffSummaryForClipboard,
+  formatDiffSummaryReadout,
   formatDiffForClipboard,
   diffAgainstPreset,
   validatePresetLibrary,
@@ -148,7 +149,7 @@ test("the page declares every control the script binds", () => {
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
     "diff-left", "diff-right", "compare-presets", "copy-diff",
-    "copy-diff-summary", "diff-current",
+    "copy-diff-summary", "diff-summary-readout", "diff-current",
     "validate-presets", "preset-validation", "diff-output",
     "file", "plan", "clear-editor", "compare", "save", "copy-command", "copy-map",
     "copy-markdown",
@@ -911,6 +912,16 @@ test("chart statistics summarize grid, land, currents and wind", () => {
   assert.throws(() => formatChartStats(null), /No chart statistics/);
 });
 
+test("diff summary readout shows counts or a clean message", () => {
+  const summary = { changed: 2, added: 1, removed: 0, total: 3 };
+  assert.equal(
+    formatDiffSummaryReadout(summary),
+    "changed=2 \u00b7 added=1 \u00b7 removed=0 \u00b7 total=3"
+  );
+  assert.equal(formatDiffSummaryReadout({ changed: 0, added: 0, removed: 0, total: 0 }), "No differences.");
+  assert.throws(() => formatDiffSummaryReadout(null), /No diff summary/);
+});
+
 test("diff summary API helpers format Rust counts strictly", () => {
   assert.equal(
     diffSummaryRequestBody("a", "b"),
@@ -1309,6 +1320,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-diff-summary"\)/);
   assert.match(source, /fetch\("\/api\/diff-summary"/);
   assert.match(source, /formatDiffSummaryForClipboard\(summary\)/);
+  assert.match(source, /getElementById\("diff-summary-readout"\)/);
+  assert.match(source, /async function renderDiffSummary/);
+  assert.match(source, /formatDiffSummaryReadout\(/);
   assert.match(source, /copyDiffButton\.addEventListener\("click", copyChartDiff\)/);
   assert.match(source, /formatDiffForClipboard\(lastDiff/);
   assert.match(source, /getElementById\("diff-current"\)/);

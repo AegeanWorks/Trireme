@@ -1161,6 +1161,21 @@ function parseDiffSummaryResponse(result) {
   };
 }
 
+function formatDiffSummaryReadout(summary) {
+  if (!summary || typeof summary.total !== "number") {
+    throw new Error("No diff summary to display.");
+  }
+  if (summary.total === 0) {
+    return "No differences.";
+  }
+  return (
+    "changed=" + summary.changed +
+    " \u00b7 added=" + summary.added +
+    " \u00b7 removed=" + summary.removed +
+    " \u00b7 total=" + summary.total
+  );
+}
+
 function formatDiffSummaryForClipboard(summary) {
   if (!summary || typeof summary.total !== "number") {
     throw new Error("No diff summary to copy.");
@@ -1624,6 +1639,7 @@ if (typeof module !== "undefined" && module.exports) {
     diffSummaryRequestBody,
     parseDiffSummaryResponse,
     formatDiffSummaryForClipboard,
+    formatDiffSummaryReadout,
     formatDiffForClipboard,
     diffAgainstPreset,
     calmChartText,
@@ -1668,6 +1684,7 @@ if (typeof document !== "undefined") {
   const diffLeft = document.getElementById("diff-left");
   const diffRight = document.getElementById("diff-right");
   const diffOutput = document.getElementById("diff-output");
+  const diffSummaryReadout = document.getElementById("diff-summary-readout");
   const comparePresetsButton = document.getElementById("compare-presets");
   const copyDiffSummaryButton = document.getElementById("copy-diff-summary");
   const copyDiffButton = document.getElementById("copy-diff");
@@ -2079,6 +2096,21 @@ if (typeof document !== "undefined") {
     }
   }
 
+  async function renderDiffSummary(leftText, rightText) {
+    try {
+      const response = await fetch("/api/diff-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: diffSummaryRequestBody(leftText, rightText),
+      });
+      diffSummaryReadout.textContent = formatDiffSummaryReadout(
+        parseDiffSummaryResponse(await response.json())
+      );
+    } catch (error) {
+      diffSummaryReadout.textContent = "Summary unavailable.";
+    }
+  }
+
   async function fetchChartDiff(leftText, rightText) {
     const response = await fetch("/api/chart-diff", {
       method: "POST",
@@ -2105,6 +2137,7 @@ if (typeof document !== "undefined") {
       lastDiff = await fetchChartDiff(left.chart, right.chart);
       lastDiffNames = [left.name, right.name];
       diffOutput.textContent = formatChartDiff(lastDiff);
+      renderDiffSummary(left.chart, right.chart);
       setState("Compared '" + left.name + "' with '" + right.name + "'.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
@@ -2257,6 +2290,7 @@ if (typeof document !== "undefined") {
       lastDiffNames = ["Current chart", preset.name];
       diffOutput.textContent =
         "Current chart -> " + preset.name + "\n" + formatChartDiff(lastDiff);
+      renderDiffSummary(chart.value, preset.chart);
       setState("Compared the editor chart with '" + preset.name + "'.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
