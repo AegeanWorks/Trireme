@@ -107,6 +107,23 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn init_creates_a_valid_starter_chart() {
+    let scratch = Scratch::new();
+    let path = scratch.0.join("starter.txt");
+    let path_s = path.to_str().unwrap();
+    let out = ok_text(&run(&["init", path_s, "--width", "6", "--height", "3", "--wind", "1,0"]));
+    assert!(out.contains("Created"));
+    let body = std::fs::read_to_string(&path).unwrap();
+    assert!(body.starts_with("TRIREME-CHART v1\ngrid 6 3\nwind 1 0\n"));
+    let issues = ok_text(&run(&["chart", path_s, "--issues"]));
+    assert!(issues.contains("OK: no chart issues found."));
+    let again = run(&["init", path_s, "--width", "2", "--height", "2"]);
+    assert_eq!(again.status.code(), Some(2));
+    assert!(ok_text(&run(&["init", path_s, "--width", "2", "--height", "2", "--force"])).contains("Created"));
+    assert_eq!(run(&["init", path_s, "--width", "0", "--height", "2", "--force"]).status.code(), Some(2));
+}
+
+#[test]
 fn inspect_reports_stats_fingerprint_and_issues() {
     let scratch = Scratch::new();
     let chart = scratch.chart("grid 4 3\nwind 1 0\nland 2 2\n");

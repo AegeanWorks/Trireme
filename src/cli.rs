@@ -1,9 +1,10 @@
 //! Hand-rolled argument parsing for the `trireme` binary: no CLI crate, no
 //! global state, and explicit exit codes (0 ok, 1 no route, 2 usage/IO).
 
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::net::TcpListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::chart;
 use crate::json;
@@ -18,6 +19,7 @@ USAGE:
   trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]
   trireme diff <left> <right> [--summary] [--json]
   trireme inspect <chart> [--json]
+  trireme init <file> --width W --height H [--wind DX DY] [--force]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -54,6 +56,7 @@ pub fn run(args: &[String]) -> i32 {
         Some("compare") => cmd_compare(&args[1..]),
         Some("diff") => cmd_diff(&args[1..]),
         Some("inspect") => cmd_inspect(&args[1..]),
+        Some("init") => cmd_init(&args[1..]),
         Some("serve") => cmd_serve(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
@@ -399,6 +402,98 @@ fn cmd_chart(args: &[&str]) -> i32 {
     println!("land {}", sea.land.len());
     println!("currents {}", sea.currents.len());
     0
+}
+
+fn cmd_init(args: &[&str]) -> i32 {
+    let mut path: Option<&str> = None;
+    let mut width: Option<u32> = None;
+    let mut height: Option<u32> = None;
+    let mut wind = (0i8, 0i8);
+    let mut force = false;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index] {
+            "--width" | "--height" | "--wind" => {
+                let flag = args[index];
+                index += 1;
+                let value = match args.get(index) {
+                    Some(value) => *value,
+                    None => {
+                        return fail(&format!("{flag} needs a value"), "This flag has an argument.", "Check the command syntax.")
+                    }
+                };
+                if flag == "--width" {
+                    width = match value.parse::<u32>() {
+                        Ok(number) if number > 0 => Some(number),
+                        _ => return fail("--width needs a positive integer", "Grid width must be positive.", "Use --width 8"),
+                    };
+                } else if flag == "--height" {
+                    height = match value.parse::<u32>() {
+                        Ok(number) if number > 0 => Some(number),
+                        _ => return fail("--height needs a positive integer", "Grid height must be positive.", "Use --height 4"),
+                    };
+                } else {
+                    let mut parts = value.split(',');
+                    let dx = parts.next().and_then(|part| part.parse::<i8>().ok());
+                    let dy = parts.next().and_then(|part| part.parse::<i8>().ok());
+                    match (dx, dy, parts.next()) {
+                        (Some(dx), Some(dy), None) => wind = (dx, dy),
+                        _ => {
+                            return fail("--wind needs DX,DY from -1 to 1", "Wind components are small integers.", "Use --wind 1,0")
+                        }
+                    }
+                    if !(-1..=1).contains(&wind.0) || !(-1..=1).contains(&wind.1) {
+                        return fail("--wind components must be -1, 0 or 1", "Wind is a direction, not a magnitude.", "Use --wind 1,0");
+                    }
+                }
+            }
+            "--force" => force = true,
+            other if other.starts_with('-') => {
+                return fail(&format!("unknown option '{other}'"), "init accepts --width, --height, --wind and --force.", "Use: trireme init <file> --width W --height H [--wind DX DY] [--force]")
+            }
+            other if path.is_none() => path = Some(other),
+            other => return fail(&format!("unexpected argument '{other}'"), "init writes one chart file.", "Use: trireme init <file> --width W --height H"),
+        }
+        index += 1;
+    }
+    let (path, width, height) = match (path, width, height) {
+        (Some(path), Some(width), Some(height)) => (path, width, height),
+        _ => {
+            return fail(
+                "init needs a file, --width and --height",
+                "A starter chart needs a destination and a grid size.",
+                "Use: trireme init <file> --width W --height H [--wind DX DY] [--force]",
+            )
+        }
+    };
+    if Path::new(path).exists() && !force {
+        return fail(
+            &format!("'{path}' already exists"),
+            "Init never overwrites an existing chart by default.",
+            "Pass --force to replace it, or choose another path.",
+        );
+    }
+    let chart = crate::chart::Chart {
+        width,
+        height,
+        wind: match crate::chart::Vec2::new(wind.0, wind.1) {
+            Ok(value) => value,
+            Err(err) => return fail(&err, "Wind must be a valid direction.", "Use --wind 0,0"),
+        },
+        land: HashSet::new(),
+        currents: HashMap::new(),
+    };
+    match fs::write(path, crate::chart::to_text(&chart)) {
+        Ok(()) => {
+            println!("Created {path} ({}x{} grid, wind ({},{})).", width, height, wind.0, wind.1);
+            0
+        }
+        Err(err) => fail(
+            &format!("cannot write '{path}': {err}"),
+            "The chart destination is not writable.",
+            "Check the directory and permissions, then retry.",
+        ),
+    }
 }
 
 fn cmd_inspect(args: &[&str]) -> i32 {
