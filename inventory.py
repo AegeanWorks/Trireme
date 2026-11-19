@@ -19,4 +19,7 @@ if __name__ == "__main__":
     print('button|export|web/index.html#export')
     print('button|export-csv|web/index.html#export-csv')
     print('output|map|web/index.html#map')
+    print('panel|history|web/index.html#history-title')
+    print('button|clear-history|web/index.html#clear-history')
+    print('output|history-list|web/index.html#history-list')
     print('cli|help|--help')

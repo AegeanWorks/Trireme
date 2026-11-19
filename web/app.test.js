@@ -16,6 +16,12 @@ const {
   csvCell,
   routeToCsv,
   routeCsvFilename,
+  HISTORY_KEY,
+  HISTORY_LIMIT,
+  historyEntry,
+  appendHistory,
+  parseHistory,
+  formatHistoryEntry,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -44,6 +50,7 @@ test("the page declares every control the script binds", () => {
     "chart", "from", "to", "preset", "file", "plan", "compare", "save",
     "load", "import", "download", "export", "export-csv", "map", "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
+    "history-title", "clear-history", "history-list",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
   }
@@ -142,6 +149,60 @@ test("CSV cells quote commas and quotes, and filenames end in .csv", () => {
   assert.equal(routeCsvFilename(""), "chart.csv");
 });
 
+test("history entries capture the query and the plan", () => {
+  const route = { time: 647, steps: ["E", "NE"] };
+  const query = { from: [0, 2], to: [7, 0] };
+  const entry = historyEntry(route, query, 1763550000000, "calm water compared");
+  assert.deepEqual(entry, {
+    at: 1763550000000,
+    from: [0, 2],
+    to: [7, 0],
+    time: 647,
+    steps: 2,
+    heading: "E NE",
+    note: "calm water compared",
+  });
+  assert.equal(historyEntry({ time: 0, steps: [] }, query, 1).heading, "(already there)");
+  assert.throws(() => historyEntry(null, query, 1), /No route/);
+});
+
+test("history is newest first, capped, and tolerant of bad storage", () => {
+  const first = historyEntry({ time: 1, steps: [] }, { from: [0, 0], to: [1, 1] }, 1);
+  const second = historyEntry({ time: 2, steps: [] }, { from: [0, 0], to: [2, 2] }, 2);
+  const appended = appendHistory([first, null, { at: "bad" }], second);
+  assert.deepEqual(appended.map((entry) => entry.at), [2, 1]);
+  const older = [10, 11, 12, 13].map((at) =>
+    historyEntry({ time: at, steps: [] }, {}, at)
+  );
+  const capped = appendHistory(
+    older,
+    historyEntry({ time: 20, steps: [] }, {}, 20),
+    3
+  );
+  assert.deepEqual(capped.map((entry) => entry.at), [20, 10, 11]);
+  assert.equal(HISTORY_LIMIT, 10);
+  assert.equal(HISTORY_KEY, "trireme.history");
+  assert.deepEqual(parseHistory(null), []);
+  assert.deepEqual(parseHistory("not json"), []);
+  assert.deepEqual(parseHistory('{"at":1}'), []);
+  assert.deepEqual(
+    parseHistory('[{"at":1,"time":2},{"at":"x","time":3},null]').map((e) => e.at),
+    [1]
+  );
+});
+
+test("history rows are stable and readable", () => {
+  const entry = historyEntry(
+    { time: 400, steps: ["E", "E"] },
+    { from: [0, 0], to: [2, 0] },
+    Date.UTC(2026, 10, 19, 8, 30, 0)
+  );
+  assert.equal(
+    formatHistoryEntry(entry),
+    "2026-11-19T08:30:00.000Z \u00b7 (0,0)\u2192(2,0) \u00b7 400 units \u00b7 2 steps"
+  );
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -151,6 +212,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /Promise\.all\(\[ask\(query\), ask\(calm\)\]\)/);
   assert.match(source, /getElementById\("export-csv"\)\.addEventListener/);
   assert.match(source, /routeCsvFilename\(chartName\)/);
+  assert.match(source, /const clearHistory = document\.getElementById\("clear-history"\)/);
+  assert.match(source, /clearHistory\.addEventListener\("click"/);
+  assert.match(source, /localStorage\.setItem\(HISTORY_KEY/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

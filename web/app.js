@@ -125,8 +125,78 @@ function routeCsvFilename(name) {
   return chartFilename(name).replace(/\.txt$/, "") + ".csv";
 }
 
+const HISTORY_KEY = "trireme.history";
+const HISTORY_LIMIT = 10;
+
+function historyEntry(route, query, at, note) {
+  if (!route || typeof route.time !== "number" || !Array.isArray(route.steps)) {
+    throw new Error("No route to record in history.");
+  }
+  return {
+    at: Number(at) || 0,
+    from: query.from,
+    to: query.to,
+    time: route.time,
+    steps: route.steps.length,
+    heading: route.steps.join(" ") || "(already there)",
+    note: String(note || ""),
+  };
+}
+
+function appendHistory(entries, entry, limit) {
+  const clean = Array.isArray(entries)
+    ? entries.filter((item) => item && typeof item.at === "number")
+    : [];
+  const cap = Number.isInteger(limit) && limit > 0 ? limit : HISTORY_LIMIT;
+  return [entry, ...clean].slice(0, cap);
+}
+
+function parseHistory(raw) {
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(
+      (item) =>
+        item &&
+        typeof item.at === "number" &&
+        typeof item.time === "number"
+    );
+  } catch (error) {
+    return [];
+  }
+}
+
+function formatHistoryEntry(entry) {
+  const date = new Date(entry.at).toISOString();
+  const formatPoint = (point) =>
+    Array.isArray(point) ? point.join(",") : String(point || "");
+  const line =
+    date +
+    " \u00b7 (" +
+    formatPoint(entry.from) +
+    ")\u2192(" +
+    formatPoint(entry.to) +
+    ") \u00b7 " +
+    entry.time +
+    " units \u00b7 " +
+    entry.steps +
+    " steps";
+  return entry.note ? line + " \u00b7 " + entry.note : line;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    HISTORY_KEY,
+    HISTORY_LIMIT,
+    historyEntry,
+    appendHistory,
+    parseHistory,
+    formatHistoryEntry,
     PRESETS,
     point,
     applyPreset,
@@ -158,12 +228,37 @@ if (typeof document !== "undefined") {
   const compareCurrent = document.getElementById("compare-current");
   const compareCalm = document.getElementById("compare-calm");
   const compareDelta = document.getElementById("compare-delta");
+  const historyList = document.getElementById("history-list");
+  const clearHistory = document.getElementById("clear-history");
   let lastRoute = null;
   let chartName = "chart.txt";
 
   function setState(message, kind) {
     status.textContent = message;
     status.className = "status " + kind;
+  }
+
+  function renderHistory() {
+    const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    historyList.replaceChildren();
+    if (entries.length === 0) {
+      const empty = document.createElement("li");
+      empty.textContent = "No routes planned yet.";
+      historyList.appendChild(empty);
+      return;
+    }
+    for (const entry of entries) {
+      const row = document.createElement("li");
+      row.textContent = formatHistoryEntry(entry);
+      historyList.appendChild(row);
+    }
+  }
+
+  function remember(query, route, note) {
+    const entry = historyEntry(route, query, Date.now(), note);
+    const updated = appendHistory(parseHistory(localStorage.getItem(HISTORY_KEY)), entry);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    renderHistory();
   }
 
   function show(route) {
@@ -318,6 +413,7 @@ if (typeof document !== "undefined") {
       if (result.ok) {
         lastRoute = result;
         comparePanel.hidden = true;
+        remember(query, result);
         setState("Route found.", "good");
         show(result);
       } else {
@@ -353,6 +449,7 @@ if (typeof document !== "undefined") {
       compareDelta.textContent =
         (saved > 0 ? "-" : saved < 0 ? "+" : "") + Math.abs(saved) + " units";
       lastRoute = withWind;
+      remember(query, withWind, "calm water compared");
       show(withWind);
       setState("Compared the chart with calm water.", "good");
     } catch (error) {
@@ -368,6 +465,12 @@ if (typeof document !== "undefined") {
   document.getElementById("export").addEventListener("click", exportRoute);
   document.getElementById("export-csv").addEventListener("click", exportCsv);
   document.getElementById("compare").addEventListener("click", compare);
+  clearHistory.addEventListener("click", () => {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+    setState("Route history cleared.", "good");
+  });
+  renderHistory();
   preset.addEventListener("change", () => {
     const selection = applyPreset(preset.value);
     chart.value = selection.chart;
