@@ -200,6 +200,29 @@ function routeCsvFilename(name) {
   return chartFilename(name).replace(/\.txt$/, "") + ".csv";
 }
 
+function formatRouteSummary(route) {
+  if (!route || typeof route !== "object") {
+    throw new Error("No route to copy.");
+  }
+  const point = (value) =>
+    Array.isArray(value) ? "(" + value[0] + "," + value[1] + ")" : "\u2014";
+  const steps = Array.isArray(route.steps) ? route.steps : [];
+  const waypoints = Array.isArray(route.waypoints) ? route.waypoints : [];
+  return [
+    "Trireme route " + point(route.from) + " -> " + point(route.to),
+    "Time: " +
+      (typeof route.time === "number" ? route.time + " units" : "\u2014") +
+      " | Steps: " +
+      steps.length +
+      " | Explored: " +
+      (typeof route.explored === "number" ? route.explored + " cells" : "\u2014"),
+    "Headings: " + (steps.length ? steps.join(" ") : "\u2014"),
+    "Step times: " + formatStepTimes(route),
+    "Waypoints: " +
+      (waypoints.length ? waypoints.map(point).join(" -> ") : "\u2014"),
+  ].join("\n");
+}
+
 const HISTORY_KEY = "trireme.history";
 const HISTORY_LIMIT = 10;
 
@@ -301,6 +324,7 @@ if (typeof module !== "undefined" && module.exports) {
     routeToCsv,
     routeCsvFilename,
     formatStepTimes,
+    formatRouteSummary,
   };
 }
 
@@ -521,6 +545,29 @@ if (typeof document !== "undefined") {
     setState("Route exported as " + link.download + ".", "good");
   }
 
+  async function copySummary() {
+    if (lastRoute === null) {
+      setState("Plan a route before copying its summary.", "bad");
+      return;
+    }
+    const text = formatRouteSummary(lastRoute);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Route summary copied to the clipboard.", "good");
+    } catch (error) {
+      setState("Clipboard unavailable: " + error, "bad");
+    }
+  }
+
   async function ask(query) {
     const response = await fetch("/api/route", {
       method: "POST",
@@ -601,6 +648,7 @@ if (typeof document !== "undefined") {
   document.getElementById("download").addEventListener("click", downloadChart);
   document.getElementById("export").addEventListener("click", exportRoute);
   document.getElementById("export-csv").addEventListener("click", exportCsv);
+  document.getElementById("copy-summary").addEventListener("click", copySummary);
   document.getElementById("compare").addEventListener("click", compare);
   clearHistory.addEventListener("click", () => {
     localStorage.removeItem(HISTORY_KEY);

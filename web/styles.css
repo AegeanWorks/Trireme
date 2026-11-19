@@ -105,7 +105,8 @@ button.secondary {
 }
 button:hover { filter: brightness(1.08); }
 
-.status { margin: 6px 0 14px; font-weight: 600; }
+.status { margin: 6px 0 10px; font-weight: 600; }
+.status + button { margin-bottom: 12px; }
 .status.busy { color: var(--muted); }
 .status.good { color: var(--good); }
 .status.bad { color: var(--bad); }

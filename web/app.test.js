@@ -19,6 +19,7 @@ const {
   routeToCsv,
   routeCsvFilename,
   formatStepTimes,
+  formatRouteSummary,
   HISTORY_KEY,
   HISTORY_LIMIT,
   historyEntry,
@@ -52,7 +53,7 @@ test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
     "chart", "chart-issues", "from", "to", "preset", "file", "plan", "compare", "save",
-    "load", "import", "download", "export", "export-csv", "map", "step-times",
+    "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "history-title", "clear-history", "history-list",
@@ -188,6 +189,30 @@ test("step times render each heading with its own cost", () => {
   assert.equal(formatStepTimes(null), "\u2014");
 });
 
+test("route summary is a plain-text clipboard block", () => {
+  const route = {
+    from: [0, 2],
+    to: [7, 0],
+    time: 647,
+    explored: 26,
+    steps: ["E", "NE"],
+    step_times: [83, 116],
+    waypoints: [[0, 2], [1, 2], [2, 1]],
+  };
+  assert.equal(
+    formatRouteSummary(route),
+    "Trireme route (0,2) -> (7,0)\n" +
+      "Time: 647 units | Steps: 2 | Explored: 26 cells\n" +
+      "Headings: E NE\n" +
+      "Step times: E 83 units \u00b7 NE 116 units\n" +
+      "Waypoints: (0,2) -> (1,2) -> (2,1)"
+  );
+  const sparse = formatRouteSummary({ steps: [], step_times: [], waypoints: [] });
+  assert.match(sparse, /Time: \u2014/);
+  assert.match(sparse, /Headings: \u2014/);
+  assert.throws(() => formatRouteSummary(null), /No route/);
+});
+
 test("CSV cells quote commas and quotes, and filenames end in .csv", () => {
   assert.equal(csvCell("plain"), "plain");
   assert.equal(csvCell("a,b"), '"a,b"');
@@ -299,6 +324,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /chart\.addEventListener\("input", renderIssues\)/);
   assert.match(source, /event\.ctrlKey && event\.shiftKey && event\.key\.toLowerCase\(\) === "c"/);
   assert.match(source, /function renderIssues\(\)/);
+  assert.match(source, /getElementById\("copy-summary"\)\.addEventListener/);
+  assert.match(source, /navigator\.clipboard\.writeText/);
+  assert.match(source, /formatRouteSummary\(lastRoute\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });
