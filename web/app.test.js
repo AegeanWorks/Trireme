@@ -63,6 +63,7 @@ const {
   formatBundlePreview,
   defaultEditorState,
   renameLocalPreset,
+  duplicateLocalPreset,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -94,6 +95,7 @@ test("the page declares every control the script binds", () => {
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
+    "duplicate-preset-name", "duplicate-preset",
     "file", "plan", "clear-editor", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
@@ -697,6 +699,22 @@ test("renaming a preset keeps content and sorts the list", () => {
   assert.match(formatHelpText(), /Rename preset/);
 });
 
+test("duplicating a preset copies its content under a new name", () => {
+  const a = buildLocalPreset("alpha", "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n", "0,0", "3,0");
+  const original = [a];
+  const copies = duplicateLocalPreset(original, "alpha", "beta copy");
+  assert.deepEqual(copies.map((p) => p.name), ["alpha", "beta copy"]);
+  assert.equal(copies[1].chart, a.chart);
+  assert.equal(copies[1].from, a.from);
+  assert.equal(copies[1].to, a.to);
+  assert.notEqual(copies[1], a);
+  assert.deepEqual(original.map((p) => p.name), ["alpha"]);
+  assert.throws(() => duplicateLocalPreset(original, "missing", "x"), /not found/);
+  assert.throws(() => duplicateLocalPreset(original, "alpha", "alpha"), /already exists/);
+  assert.throws(() => duplicateLocalPreset(original, "alpha", "bad/name"));
+  assert.match(formatHelpText(), /Duplicate preset/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -737,6 +755,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /const renamePresetButton = document\.getElementById\("rename-preset"\)/);
   assert.match(source, /renamePresetButton\.addEventListener\("click", renameSelectedPreset\)/);
   assert.match(source, /renameLocalPreset\(storedPresets\(\), from, to\)/);
+  assert.match(source, /const duplicatePresetButton = document\.getElementById\("duplicate-preset"\)/);
+  assert.match(source, /duplicatePresetButton\.addEventListener\("click", duplicateSelectedPreset\)/);
+  assert.match(source, /duplicateLocalPreset\(storedPresets\(\), from, to\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

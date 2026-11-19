@@ -24,6 +24,7 @@ const HELP_SECTIONS = {
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
     ["Rename preset", "Rename the selected saved preset"],
+    ["Duplicate preset", "Copy the selected saved preset under a new name"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -814,6 +815,26 @@ function renameLocalPreset(presets, fromName, toName) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function duplicateLocalPreset(presets, name, newName) {
+  const sourceName = normalizePresetName(name);
+  const copyName = normalizePresetName(newName);
+  if (!Array.isArray(presets)) {
+    throw new Error("No presets to duplicate.");
+  }
+  const source = presets.find(
+    (item) => item && normalizePresetName(item.name) === sourceName
+  );
+  if (!source) {
+    throw new Error("Preset '" + sourceName + "' not found.");
+  }
+  if (presets.some((item) => item && normalizePresetName(item.name) === copyName)) {
+    throw new Error("Preset '" + copyName + "' already exists.");
+  }
+  return [...presets, { ...source, name: copyName }].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -856,6 +877,7 @@ if (typeof module !== "undefined" && module.exports) {
     mergePresetFiles,
     removeLocalPreset,
     renameLocalPreset,
+    duplicateLocalPreset,
     PRESETS,
     point,
     applyPreset,
@@ -897,6 +919,8 @@ if (typeof document !== "undefined") {
   const deletePresetButton = document.getElementById("delete-preset");
   const renamePresetName = document.getElementById("rename-preset-name");
   const renamePresetButton = document.getElementById("rename-preset");
+  const duplicatePresetName = document.getElementById("duplicate-preset-name");
+  const duplicatePresetButton = document.getElementById("duplicate-preset");
   const file = document.getElementById("file");
   const issuesPanel = document.getElementById("chart-issues");
   const status = document.getElementById("status");
@@ -1156,6 +1180,25 @@ if (typeof document !== "undefined") {
       renderLocalPresets();
       localPreset.value = to;
       setState("Preset '" + from + "' renamed to '" + to + "'.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  function duplicateSelectedPreset() {
+    const from = localPreset.value;
+    if (!from) {
+      setState("Select a saved preset to duplicate.", "bad");
+      return;
+    }
+    try {
+      const to = normalizePresetName(duplicatePresetName.value);
+      const copies = duplicateLocalPreset(storedPresets(), from, to);
+      localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(copies));
+      duplicatePresetName.value = "";
+      renderLocalPresets();
+      localPreset.value = to;
+      setState("Preset '" + from + "' copied to '" + to + "'.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -1577,6 +1620,7 @@ if (typeof document !== "undefined") {
   presetsFile.addEventListener("change", importPresets);
   deletePresetButton.addEventListener("click", deleteSelectedPreset);
   renamePresetButton.addEventListener("click", renameSelectedPreset);
+  duplicatePresetButton.addEventListener("click", duplicateSelectedPreset);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();
