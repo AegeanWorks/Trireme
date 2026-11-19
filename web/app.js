@@ -4,6 +4,7 @@ const HELP_SECTIONS = {
   commands: [
     ["chart <file> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]", "Describe, calm, count, validate, sort or identify a chart"],
     ["compare <file> --from X,Y --to X,Y [--json]", "Compare wind with the calm baseline"],
+    ["import-inspection <file>", "Validate and canonicalize an inspection file"],
     ["init <file> --width W --height H", "Write a valid empty starter chart"],
     ["inspect <file> [--json]", "Report stats, fingerprint and issues"],
     ["diff <left> <right> [--summary] [--json]", "Show chart line differences or counts"],

@@ -32,6 +32,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
 |---|---|
 | `trireme chart <chart> [--json] [--calm\|--stats\|--issues\|--normalize\|--fingerprint]` | Describe the chart; `--fingerprint` prints a stable ID of its canonical form. Other flags print a calm copy, counts, issues or a sorted copy. |
 | `trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]` | Print the headings, waypoints, total time, per-step times and cells explored; `--json` emits the shared route document including `step_times` (ADR-005). |
+| `trireme import-inspection <file> [--out <file>]` | Validate and canonicalize a `trireme.inspection/1` document. |
 | `trireme init <file> --width W --height H [--wind DX DY] [--force]` | Write a valid empty starter chart. |
 | `trireme inspect <chart> [--json]` | Report stats, fingerprint and validation issues in one document. |
 | `trireme diff <left> <right> [--summary] [--json]` | Show numbered line differences, or `--summary` for counts only. |

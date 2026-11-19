@@ -107,6 +107,28 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn import_inspection_validates_and_canonicalizes_documents() {
+    let scratch = Scratch::new();
+    let source = scratch.0.join("inspection.json");
+    let body = r#"{"schema":"trireme.inspection/1","generatedBy":"x","inspection":{"valid":true,"fingerprint":"abc","stats":{"width":2,"height":2,"cells":4,"land":0,"currents":0,"wind":[0,0]},"issues":[]}}"#;
+    std::fs::write(&source, body).unwrap();
+    let source_s = source.to_str().unwrap();
+    let printed = ok_text(&run(&["import-inspection", source_s]));
+    assert!(printed.contains("\"schema\": \"trireme.inspection/1\"") || printed.contains("\"schema\":\"trireme.inspection/1\""));
+    let out = scratch.0.join("canonical.json");
+    let out_s = out.to_str().unwrap();
+    ok_text(&run(&["import-inspection", source_s, "--out", out_s]));
+    let saved = std::fs::read_to_string(&out).unwrap();
+    assert_eq!(saved.trim_end(), printed.trim_end());
+    let bad = scratch.0.join("bad.json");
+    std::fs::write(&bad, "{\"schema\":\"other\"}").unwrap();
+    let failed = run(&["import-inspection", bad.to_str().unwrap()]);
+    assert_eq!(failed.status.code(), Some(2));
+    let missing = run(&["import-inspection"]);
+    assert_eq!(missing.status.code(), Some(2));
+}
+
+#[test]
 fn init_creates_a_valid_starter_chart() {
     let scratch = Scratch::new();
     let path = scratch.0.join("starter.txt");

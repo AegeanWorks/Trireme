@@ -20,6 +20,7 @@ USAGE:
   trireme diff <left> <right> [--summary] [--json]
   trireme inspect <chart> [--json]
   trireme init <file> --width W --height H [--wind DX DY] [--force]
+  trireme import-inspection <file> [--out <file>]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -57,6 +58,7 @@ pub fn run(args: &[String]) -> i32 {
         Some("diff") => cmd_diff(&args[1..]),
         Some("inspect") => cmd_inspect(&args[1..]),
         Some("init") => cmd_init(&args[1..]),
+        Some("import-inspection") => cmd_import_inspection(&args[1..]),
         Some("serve") => cmd_serve(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
@@ -402,6 +404,72 @@ fn cmd_chart(args: &[&str]) -> i32 {
     println!("land {}", sea.land.len());
     println!("currents {}", sea.currents.len());
     0
+}
+
+fn cmd_import_inspection(args: &[&str]) -> i32 {
+    let mut path: Option<&str> = None;
+    let mut out: Option<&str> = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index] {
+            "--out" => {
+                index += 1;
+                match args.get(index) {
+                    Some(value) if !value.is_empty() => out = Some(value),
+                    _ => return fail("--out needs a file path", "The destination must be named.", "Use --out trireme-inspection.json"),
+                }
+            }
+            other if other.starts_with('-') => {
+                return fail(&format!("unknown option '{other}'"), "import-inspection accepts --out only.", "Use: trireme import-inspection <file> [--out <file>]")
+            }
+            other if path.is_none() => path = Some(other),
+            other => return fail(&format!("unexpected argument '{other}'"), "One inspection file is expected.", "Use: trireme import-inspection <file>"),
+        }
+        index += 1;
+    }
+    let path = match path {
+        Some(path) => path,
+        None => {
+            return fail(
+                "import-inspection needs a file",
+                "A document must be read from somewhere.",
+                "Use: trireme import-inspection <file> [--out <file>]",
+            )
+        }
+    };
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(err) => {
+            return fail(
+                &format!("cannot read '{path}': {err}"),
+                "The inspection file must exist and be valid UTF-8.",
+                "Export one with the browser or check the path.",
+            )
+        }
+    };
+    let document = match web::inspection_from_document(&raw) {
+        Ok(document) => document,
+        Err(err) => {
+            return fail(&err, "Only valid trireme.inspection/1 documents are accepted.", "Fix or regenerate the file and retry.")
+        }
+    };
+    match out {
+        Some(destination) => match fs::write(destination, document) {
+            Ok(()) => {
+                println!("Saved canonical inspection to {destination}");
+                0
+            }
+            Err(err) => fail(
+                &format!("cannot write '{destination}': {err}"),
+                "The output path is not writable.",
+                "Choose another path with --out.",
+            ),
+        },
+        None => {
+            println!("{document}");
+            0
+        }
+    }
 }
 
 fn cmd_init(args: &[&str]) -> i32 {
