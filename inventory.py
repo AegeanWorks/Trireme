@@ -53,4 +53,6 @@ if __name__ == "__main__":
     print('button|close-help|web/index.html#close-help')
     print('button|reset-local|web/index.html#reset-local')
     print('button|copy-bundle|web/index.html#copy-bundle')
+    print('file|bundle-file|web/index.html#bundle-file')
+    print('button|import-bundle|web/index.html#import-bundle')
     print('cli|help|--help')

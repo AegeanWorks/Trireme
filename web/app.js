@@ -28,6 +28,7 @@ const HELP_SECTIONS = {
     ["Filter / Sort history", "Search and order saved plans"],
     ["Reset local data", "Click twice to clear chart, presets and history"],
     ["Copy all data", "Copy a versioned JSON bundle to the clipboard"],
+    ["Import bundle", "Load a trireme.bundle/1 file into this browser"],
   ],
 };
 
@@ -734,6 +735,21 @@ function bundleFilename() {
   return "trireme-bundle.json";
 }
 
+function bundleImportSummary(bundle) {
+  if (!bundle || bundle.schema !== "trireme.bundle/1") {
+    throw new Error("Only a trireme.bundle/1 document can be imported.");
+  }
+  return (
+    "Bundle: chart " +
+    String(bundle.chart.chart).length +
+    " chars, " +
+    (Array.isArray(bundle.presets) ? bundle.presets.length : 0) +
+    " presets, " +
+    (Array.isArray(bundle.history) ? bundle.history.length : 0) +
+    " plans"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -763,6 +779,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatDataBundle,
     parseDataBundle,
     bundleFilename,
+    bundleImportSummary,
     normalizePresetName,
     buildLocalPreset,
     parseLocalPresets,
@@ -792,6 +809,7 @@ if (typeof module !== "undefined" && module.exports) {
 }
 
 if (typeof document !== "undefined") {
+  const bundleFile = document.getElementById("bundle-file");
   const helpPanel = document.getElementById("help-panel");
   const helpText = document.getElementById("help-text");
   const chart = document.getElementById("chart");
@@ -878,6 +896,37 @@ if (typeof document !== "undefined") {
         area.remove();
       }
       setState("Copied " + bundleFilename() + " (" + bundle.presets.length + " presets, " + bundle.history.length + " plans).", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  async function importBundle() {
+    const picked = bundleFile.files && bundleFile.files[0];
+    if (!picked) {
+      setState("Choose a trireme.bundle.json file first.", "bad");
+      return;
+    }
+    try {
+      const bundle = parseDataBundle(await picked.text());
+      const summary = bundleImportSummary(bundle);
+      chart.value = bundle.chart.chart;
+      renderIssues();
+      from.value = bundle.chart.from;
+      to.value = bundle.chart.to;
+      chartName = "imported-chart.txt";
+      const presets = mergePresetFiles(storedPresets(), bundle.presets);
+      localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(presets));
+      const history = mergeHistory(
+        parseHistory(localStorage.getItem(HISTORY_KEY)),
+        bundle.history
+      );
+      localStorage.setItem(HISTORY_KEY, historyToJson(history));
+      bundleFile.value = "";
+      renderLocalPresets();
+      renderHistory();
+      reset();
+      setState(summary + "; " + presets.length + " presets and " + history.length + " plans kept.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -1411,6 +1460,8 @@ if (typeof document !== "undefined") {
   document.getElementById("close-help").addEventListener("click", closeHelp);
   document.getElementById("reset-local").addEventListener("click", handleResetLocal);
   document.getElementById("copy-bundle").addEventListener("click", copyDataBundle);
+  document.getElementById("import-bundle").addEventListener("click", () => bundleFile.click());
+  bundleFile.addEventListener("change", importBundle);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !helpPanel.hidden) {
       closeHelp();
