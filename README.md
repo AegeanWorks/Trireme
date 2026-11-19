@@ -8,8 +8,6 @@
 
 Trireme is an offline sailing route planner: deterministic shortest-time routing over small sea charts.
 
-> **Archived**: Used as a testbed for AIKit development; no further development planned. (archived 2026-11-19). This project is read-only; its GitHub repository is archived.
-
 You describe a grid of water, land, a prevailing wind and optional local currents in a plain text chart. Trireme finds the fastest route with Dijkstra over eight headings, costs each move by wind and current alignment, and breaks ties by coordinate — so the same chart and endpoints always produce the same route. It is a search tool, not a checksum or file-verification tool.
 
 ## ⚡ 30-Second Cold-Start Quick Reference
