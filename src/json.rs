@@ -89,6 +89,50 @@ pub fn point_value(raw: &str) -> Result<(u32, u32), String> {
     Ok((x, y))
 }
 
+/// Extracts a nested object value (`"key": { ... }`) from a flat document.
+pub fn object_value(body: &str, key: &str) -> Result<String, String> {
+    let needle = format!("\"{key}\"");
+    let at = body
+        .find(&needle)
+        .ok_or_else(|| format!("missing field '{key}'"))?;
+    let rest = body[at + needle.len()..]
+        .trim_start()
+        .strip_prefix(':')
+        .ok_or_else(|| format!("field '{key}' has no value"))?
+        .trim_start();
+    let bytes = rest.as_bytes();
+    if bytes.first() != Some(&b'{') {
+        return Err(format!("field '{key}' must be an object"));
+    }
+    let mut depth = 0i32;
+    let mut quoted = false;
+    let mut escaped = false;
+    for (index, byte) in bytes.iter().enumerate() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if *byte == b'\\' {
+                escaped = true;
+            } else if *byte == b'"' {
+                quoted = false;
+            }
+            continue;
+        }
+        match byte {
+            b'"' => quoted = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(rest[..=index].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    Err(format!("field '{key}' has no closing brace"))
+}
+
 fn skip_space(bytes: &[u8], at: &mut usize) {
     while bytes.get(*at).is_some_and(u8::is_ascii_whitespace) {
         *at += 1;

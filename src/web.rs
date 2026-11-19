@@ -340,6 +340,56 @@ pub fn api_chart_diff(body: &str) -> String {
     )
 }
 
+/// Validates an exported `trireme.inspection/1` document and returns its
+/// canonical text for storage.
+pub fn inspection_from_document(raw: &str) -> Result<String, String> {
+    let document = json::fields(raw).map_err(|_| "Inspection file is not valid JSON.".to_string())?;
+    let schema = document
+        .get("schema")
+        .and_then(|value| json::string_value(value).ok())
+        .ok_or_else(|| "Inspection file has no schema.".to_string())?;
+    if schema != "trireme.inspection/1" {
+        return Err(format!("Unsupported inspection schema '{schema}'."));
+    }
+    let inspection = json::object_value(raw, "inspection")?;
+    let fields = json::fields(&inspection)
+        .map_err(|_| "Inspection document is malformed.".to_string())?;
+    let valid = fields
+        .get("valid")
+        .map(|value| value.trim())
+        .ok_or_else(|| "Inspection has no valid flag.".to_string())?;
+    match valid {
+        "true" => {
+            let fingerprint = fields
+                .get("fingerprint")
+                .and_then(|value| json::string_value(value).ok())
+                .ok_or_else(|| "Valid inspection has no fingerprint.".to_string())?;
+            if fingerprint.is_empty() {
+                return Err("Valid inspection has an empty fingerprint.".to_string());
+            }
+            let stats = json::object_value(&inspection, "stats")
+                .map_err(|_| "Valid inspection has no stats object.".to_string())?;
+            let stat_fields = json::fields(&stats)
+                .map_err(|_| "Inspection stats are malformed.".to_string())?;
+            for name in ["width", "height", "cells"] {
+                stat_fields
+                    .get(name)
+                    .and_then(|value| value.trim().parse::<u64>().ok())
+                    .ok_or_else(|| format!("Inspection stats have no valid '{name}'."))?;
+            }
+        }
+        "false" => {
+            if !inspection.contains("\"issues\"") {
+                return Err("Invalid inspection has no issues array.".to_string());
+            }
+        }
+        _ => return Err("Inspection 'valid' must be true or false.".to_string()),
+    }
+    Ok(format!(
+        "{{\"schema\":\"trireme.inspection/1\",\"generatedBy\":\"trireme-web\",\"inspection\":{inspection}}}"
+    ))
+}
+
 /// Returns the stable fingerprint of a chart from the Rust core.
 pub fn api_fingerprint(body: &str) -> String {
     let parsed = match json::fields(body) {
@@ -634,6 +684,19 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn inspection_documents_are_validated() {
+        let good = "{\"schema\":\"trireme.inspection/1\",\"generatedBy\":\"trireme-web\",\"inspection\":{\"valid\":true,\"fingerprint\":\"abc\",\"stats\":{\"width\":4,\"height\":3,\"cells\":12,\"land\":1,\"currents\":2,\"wind\":[1,0]},\"issues\":[]}}";
+        let canonical = inspection_from_document(good).unwrap();
+        assert!(canonical.contains("\"schema\":\"trireme.inspection/1\""));
+        assert_eq!(inspection_from_document(&canonical).unwrap(), canonical);
+        let invalid = "{\"schema\":\"trireme.inspection/1\",\"inspection\":{\"valid\":false,\"issues\":[{\"line\":2,\"message\":\"bad\"}]}}";
+        assert!(inspection_from_document(invalid).is_ok());
+        assert!(inspection_from_document("nope").is_err());
+        assert!(inspection_from_document("{\"schema\":\"other\"}").is_err());
+        assert!(inspection_from_document("{\"schema\":\"trireme.inspection/1\"}").is_err());
     }
 
     #[test]

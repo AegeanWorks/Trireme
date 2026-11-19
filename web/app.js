@@ -32,6 +32,7 @@ const HELP_SECTIONS = {
     ["Copy fingerprint", "Copy the stable ID of the current chart"],
     ["Inspect chart", "Show Rust stats, fingerprint and issues together"],
     ["Export inspection", "Save the inspection document as versioned JSON"],
+    ["Import inspection", "Load a saved trireme.inspection/1 file"],
     ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
@@ -222,6 +223,23 @@ function parseInspectResponse(result) {
     },
     issues,
   };
+}
+
+function parseInspectionDocument(raw) {
+  let document;
+  try {
+    document = JSON.parse(String(raw || ""));
+  } catch (error) {
+    throw new Error("Inspection file is not valid JSON.");
+  }
+  if (!document || document.schema !== "trireme.inspection/1") {
+    throw new Error("Unsupported inspection schema.");
+  }
+  if (!document.inspection || typeof document.inspection.valid !== "boolean") {
+    throw new Error("Inspection file has no valid report.");
+  }
+  const report = document.inspection;
+  return parseInspectResponse({ ok: true, ...report, ...(report.stats || {}) });
 }
 
 function inspectionToJson(inspect) {
@@ -1691,6 +1709,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatInspectForClipboard,
     inspectionToJson,
     inspectionJsonFilename,
+    parseInspectionDocument,
     formatFingerprintForClipboard,
     formatIssuesForClipboard,
     chartStats,
@@ -1782,6 +1801,8 @@ if (typeof document !== "undefined") {
   const inspectButton = document.getElementById("inspect-chart");
   const inspectOutput = document.getElementById("inspect-output");
   const exportInspectionButton = document.getElementById("export-inspection");
+  const inspectionFile = document.getElementById("inspection-file");
+  const importInspectionButton = document.getElementById("import-inspection");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
   const copyPresetStatsButton = document.getElementById("copy-preset-stats");
@@ -1886,6 +1907,23 @@ if (typeof document !== "undefined") {
         area.remove();
       }
       setState("Chart copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  async function importInspection() {
+    const picked = inspectionFile.files && inspectionFile.files[0];
+    if (!picked) {
+      setState("Choose a trireme-inspection.json file first.", "bad");
+      return;
+    }
+    try {
+      const result = parseInspectionDocument(await picked.text());
+      lastInspection = result;
+      inspectionOutput.textContent = formatInspectForClipboard(result);
+      inspectionFile.value = "";
+      setState("Inspection document imported.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
     }
@@ -3002,6 +3040,8 @@ if (typeof document !== "undefined") {
   copyFingerprintButton.addEventListener("click", copyChartFingerprint);
   inspectButton.addEventListener("click", inspectCurrentChart);
   exportInspectionButton.addEventListener("click", exportInspection);
+  importInspectionButton.addEventListener("click", () => inspectionFile.click());
+  inspectionFile.addEventListener("change", importInspection);
   copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);

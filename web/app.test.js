@@ -99,6 +99,7 @@ const {
   formatInspectForClipboard,
   inspectionToJson,
   inspectionJsonFilename,
+  parseInspectionDocument,
   formatFingerprintForClipboard,
   compareRequestBody,
   parseCompareResponse,
@@ -147,7 +148,8 @@ test("the page declares every control the script binds", () => {
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-stats", "copy-stats", "chart-issues", "copy-issues",
     "copy-preset-stats", "canonicalize", "copy-fingerprint",
-    "inspect-chart", "export-inspection", "inspect-output", "from", "to",
+    "inspect-chart", "export-inspection", "import-inspection",
+    "inspection-file", "inspect-output", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -201,6 +203,32 @@ test("issues API helpers accept only structured line-numbered problems", () => {
   assert.throws(() => parseIssuesResponse(null), /Could not validate/);
   assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
   assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
+});
+
+test("inspection import validates schema and report structure", () => {
+  const inspect = parseInspectResponse({
+    ok: true,
+    valid: true,
+    fingerprint: "abc123",
+    width: 4,
+    height: 3,
+    cells: 12,
+    land: 1,
+    currents: 2,
+    wind: [1, 0],
+  });
+  const file = inspectionToJson(inspect);
+  assert.deepEqual(parseInspectionDocument(file), inspect);
+  assert.throws(() => parseInspectionDocument("nope"), /not valid JSON/);
+  assert.throws(
+    () => parseInspectionDocument(JSON.stringify({ schema: "other", inspection: {} })),
+    /Unsupported inspection schema/
+  );
+  assert.throws(
+    () => parseInspectionDocument(JSON.stringify({ schema: "trireme.inspection/1" })),
+    /no valid report/
+  );
+  assert.match(formatHelpText(), /Import inspection/);
 });
 
 test("inspection export is versioned and preserves the document", () => {
@@ -1441,6 +1469,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /formatInspectForClipboard\(result\)/);
   assert.match(source, /getElementById\("export-inspection"\)/);
   assert.match(source, /inspectionToJson\(lastInspection\)/);
+  assert.match(source, /getElementById\("import-inspection"\)/);
+  assert.match(source, /parseInspectionDocument\(await picked\.text\(\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

@@ -43,6 +43,8 @@ if __name__ == "__main__":
     print('button|copy-fingerprint|web/index.html#copy-fingerprint')
     print('button|inspect-chart|web/index.html#inspect-chart')
     print('button|export-inspection|web/index.html#export-inspection')
+    print('button|import-inspection|web/index.html#import-inspection')
+    print('file|inspection-file|web/index.html#inspection-file')
     print('output|inspect-output|web/index.html#inspect-output')
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
