@@ -51,25 +51,83 @@ function chartFilename(name) {
   return cleaned.endsWith(".txt") ? cleaned : cleaned + ".txt";
 }
 
-function validateChartText(text) {
+function chartIssues(text) {
   const normalized = String(text).replace(/\r\n?/g, "\n");
+  const issues = [];
   if (normalized.length > 1000000) {
-    throw new Error("Chart is too large; the browser limit is 1 MB.");
+    issues.push({ line: 0, message: "Chart is too large; the browser limit is 1 MB." });
   }
-  const lines = normalized.split("\n").filter((line) => {
-    const trimmed = line.trim();
-    return trimmed && !trimmed.startsWith("#");
-  });
-  if (lines[0] !== "TRIREME-CHART v1") {
-    throw new Error("Chart must start with 'TRIREME-CHART v1' after any comments.");
+  const lines = normalized.split("\n");
+  const meaningful = lines
+    .map((line, index) => ({ line, number: index + 1 }))
+    .filter((entry) => {
+      const trimmed = entry.line.trim();
+      return trimmed && !trimmed.startsWith("#");
+    });
+
+  if (!meaningful.length || meaningful[0].line.trim() !== "TRIREME-CHART v1") {
+    issues.push({
+      line: meaningful.length ? meaningful[0].number : 1,
+      message: "Chart must start with 'TRIREME-CHART v1' after any comments.",
+    });
   }
-  if (!lines.some((line) => /^grid\s+\d+\s+\d+$/.test(line.trim()))) {
-    throw new Error("Chart needs a 'grid <width> <height>' line.");
+
+  const patterns = {
+    grid: /^grid\s+\d+\s+\d+$/,
+    wind: /^wind\s+-?[01]\s+-?[01]$/,
+    land: /^land\s+\d+\s+\d+$/,
+    current: /^current\s+\d+\s+\d+\s+-?[01]\s+-?[01]$/,
+  };
+  const hints = {
+    grid: "grid <width> <height>",
+    wind: "wind <dx> <dy> with components -1..1",
+    land: "land <x> <y>",
+    current: "current <x> <y> <dx> <dy>",
+  };
+  const seen = new Set();
+  for (const entry of meaningful) {
+    const trimmed = entry.line.trim();
+    const directive = trimmed.split(/\s+/)[0];
+    if (trimmed === "TRIREME-CHART v1") {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(patterns, directive)) {
+      if (!patterns[directive].test(trimmed)) {
+        issues.push({ line: entry.number, message: "expected " + hints[directive] + "." });
+      }
+      if (directive === "grid" || directive === "wind") {
+        if (seen.has(directive)) {
+          issues.push({ line: entry.number, message: "'" + directive + "' is declared more than once." });
+        }
+        seen.add(directive);
+      }
+    } else {
+      issues.push({ line: entry.number, message: "unknown directive '" + directive + "'." });
+    }
   }
-  if (!lines.some((line) => /^wind\s+-?[01]\s+-?[01]$/.test(line.trim()))) {
-    throw new Error("Chart needs a 'wind <dx> <dy>' line with components -1..1.");
+  for (const directive of ["grid", "wind"]) {
+    if (!seen.has(directive)) {
+      issues.push({ line: 0, message: "Chart needs a '" + hints[directive] + "' line." });
+    }
   }
-  return normalized;
+  return issues;
+}
+
+function formatChartIssues(issues) {
+  if (!Array.isArray(issues) || issues.length === 0) {
+    return "No chart issues.";
+  }
+  return issues
+    .map((issue) => "line " + (issue.line || "?") + ": " + issue.message)
+    .join("\n");
+}
+
+function validateChartText(text) {
+  const issues = chartIssues(text);
+  if (issues.length > 0) {
+    throw new Error(formatChartIssues(issues));
+  }
+  return String(text).replace(/\r\n?/g, "\n");
 }
 
 function calmChartText(text) {
@@ -235,6 +293,8 @@ if (typeof module !== "undefined" && module.exports) {
     applyPreset,
     chartFilename,
     validateChartText,
+    chartIssues,
+    formatChartIssues,
     calmChartText,
     compareSummary,
     csvCell,
@@ -250,6 +310,7 @@ if (typeof document !== "undefined") {
   const to = document.getElementById("to");
   const preset = document.getElementById("preset");
   const file = document.getElementById("file");
+  const issuesPanel = document.getElementById("chart-issues");
   const status = document.getElementById("status");
   const time = document.getElementById("time");
   const stepsCount = document.getElementById("steps-count");
@@ -271,6 +332,13 @@ if (typeof document !== "undefined") {
   function setState(message, kind) {
     status.textContent = message;
     status.className = "status " + kind;
+  }
+
+  function renderIssues() {
+    const issues = chartIssues(chart.value);
+    issuesPanel.hidden = issues.length === 0;
+    issuesPanel.textContent = formatChartIssues(issues);
+    return issues.length;
   }
 
   function renderHistory() {
@@ -315,6 +383,7 @@ if (typeof document !== "undefined") {
     try {
       const restored = restoreEntry(entry);
       chart.value = restored.chart;
+      renderIssues();
       from.value = restored.from;
       to.value = restored.to;
       chartName = "restored-chart.txt";
@@ -369,6 +438,7 @@ if (typeof document !== "undefined") {
       return;
     }
     chart.value = saved;
+    renderIssues();
     from.value = localStorage.getItem("trireme.from") || "0,0";
     to.value = localStorage.getItem("trireme.to") || "1,1";
     setState("Saved chart loaded.", "good");
@@ -386,6 +456,7 @@ if (typeof document !== "undefined") {
       const text = validateChartText(await picked.text());
       chart.value = text;
       chartName = chartFilename(picked.name);
+      renderIssues();
       file.value = "";
       setState("Imported " + chartName + ".", "good");
       reset();
@@ -543,9 +614,12 @@ if (typeof document !== "undefined") {
     }
   });
   renderHistory();
+  renderIssues();
+  chart.addEventListener("input", renderIssues);
   preset.addEventListener("change", () => {
     const selection = applyPreset(preset.value);
     chart.value = selection.chart;
+    renderIssues();
     from.value = selection.from;
     to.value = selection.to;
     chartName = "chart-" + preset.value + ".txt";
@@ -553,7 +627,10 @@ if (typeof document !== "undefined") {
     reset();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.ctrlKey && event.key === "Enter") {
+    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      compare();
+    } else if (event.ctrlKey && event.key === "Enter") {
       event.preventDefault();
       plan();
     }

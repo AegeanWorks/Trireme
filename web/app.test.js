@@ -11,6 +11,8 @@ const {
   applyPreset,
   chartFilename,
   validateChartText,
+  chartIssues,
+  formatChartIssues,
   calmChartText,
   compareSummary,
   csvCell,
@@ -49,7 +51,7 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
-    "chart", "from", "to", "preset", "file", "plan", "compare", "save",
+    "chart", "chart-issues", "from", "to", "preset", "file", "plan", "compare", "save",
     "load", "import", "download", "export", "export-csv", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -71,6 +73,38 @@ test("chart filenames keep only a safe basename", () => {
   assert.equal(chartFilename("route"), "route.txt");
   assert.equal(chartFilename(""), "chart.txt");
   assert.equal(chartFilename("..hidden"), "hidden.txt");
+});
+
+test("chart issues name the offending line numbers", () => {
+  const text =
+    "TRIREME-CHART v1\n# comment\ngrid 4 3\nwind 2 0\nland x 2\nunknown 7\ncurrent 1 1 0 0\n";
+  const issues = chartIssues(text);
+  assert.deepEqual(issues, [
+    { line: 4, message: "expected wind <dx> <dy> with components -1..1." },
+    { line: 5, message: "expected land <x> <y>." },
+    { line: 6, message: "unknown directive 'unknown'." },
+  ]);
+  assert.equal(
+    formatChartIssues(issues),
+    "line 4: expected wind <dx> <dy> with components -1..1.\n" +
+      "line 5: expected land <x> <y>.\n" +
+      "line 6: unknown directive 'unknown'."
+  );
+  assert.equal(formatChartIssues([]), "No chart issues.");
+});
+
+test("chart issues catch a wrong header and duplicate directives", () => {
+  const noHeader = chartIssues("grid 2 2\nwind 0 0\n");
+  assert.equal(noHeader[0].line, 1);
+  assert.match(noHeader[0].message, /TRIREME-CHART v1/);
+  const duplicate = chartIssues("TRIREME-CHART v1\ngrid 2 2\nwind 0 0\ngrid 3 3\nwind 1 0\n");
+  assert.deepEqual(
+    duplicate.map((issue) => issue.line),
+    [4, 5]
+  );
+  const empty = chartIssues("");
+  assert.equal(empty.length, 3);
+  assert.throws(() => validateChartText("grid 2 2\nwind 0 0\n"), /line 1/);
 });
 
 test("chart import validates the header grid and wind", () => {
@@ -262,6 +296,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
   assert.match(source, /stepTimes\.textContent = formatStepTimes\(route\)/);
+  assert.match(source, /chart\.addEventListener\("input", renderIssues\)/);
+  assert.match(source, /event\.ctrlKey && event\.shiftKey && event\.key\.toLowerCase\(\) === "c"/);
+  assert.match(source, /function renderIssues\(\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

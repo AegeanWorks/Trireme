@@ -6,6 +6,7 @@ if __name__ == "__main__":
     print('cli|serve|serve [--port N] [--project DIR]')
     print('select|preset|web/index.html#preset')
     print('textarea|chart|web/index.html#chart')
+    print('output|chart-issues|web/index.html#chart-issues')
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
     print('button|plan|web/index.html#plan')

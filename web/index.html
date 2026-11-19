@@ -39,6 +39,7 @@ land 4 1
 current 5 2 0 -1
 current 6 1 -1 0</textarea>
       </label>
+      <pre id="chart-issues" class="issues" hidden aria-live="polite"></pre>
       <label class="field">
         <span>Import chart file (.txt)</span>
         <input type="file" id="file" accept=".txt,text/plain">
@@ -64,7 +65,7 @@ current 6 1 -1 0</textarea>
         <button id="export-csv" type="button" class="secondary">Export route (CSV)</button>
       </div>
       <p class="hint">Presets are examples; Save/Load keep a chart in this browser only. Import reads a .txt chart from disk; Download chart writes the current one back.</p>
-      <p class="hint">Tip: press Ctrl+Enter to plan.</p>
+      <p class="hint">Shortcuts: Ctrl+Enter plans; Ctrl+Shift+C compares with calm water. Chart problems are listed above the editor with line numbers.</p>
     </section>
 
     <section class="panel" aria-labelledby="result-title">
