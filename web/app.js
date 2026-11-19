@@ -43,6 +43,7 @@ const HELP_SECTIONS = {
     ["Copy map", "Copy the ASCII route map with its legend"],
     ["Copy Markdown", "Copy a Markdown report of the route"],
     ["Export comparison", "Download the wind-vs-calm comparison as CSV or JSON"],
+    ["Copy comparison Markdown", "Copy the comparison as a Markdown table"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Copy history summary", "Copy the history overview to the clipboard"],
@@ -1325,6 +1326,42 @@ function comparisonJsonFilename() {
   return "trireme-comparison.json";
 }
 
+function comparisonToMarkdown(comparison) {
+  if (!comparison || !comparison.withWind || !comparison.still) {
+    throw new Error("No comparison to format as Markdown.");
+  }
+  const wind = comparison.withWind;
+  const calm = comparison.still;
+  const source = comparison.query || wind;
+  const point = (value) =>
+    Array.isArray(value) ? "(" + value[0] + "," + value[1] + ")" : String(value || "?");
+  const saved = (typeof calm.time === "number" ? calm.time : 0) -
+    (typeof wind.time === "number" ? wind.time : 0);
+  const percent = calm.time
+    ? Math.round((Math.abs(saved) / calm.time) * 100)
+    : 0;
+  const verdict = saved === 0
+    ? "No difference (" + wind.time + " units)."
+    : saved > 0
+      ? "Saving: " + saved + " units (" + percent + "% faster)."
+      : "Cost: " + -saved + " units (" + percent + "% slower).";
+  const row = (name, route) =>
+    "| " + name + " | " + (typeof route.time === "number" ? route.time : "?") +
+    " | " + (Array.isArray(route.steps) ? route.steps.length : "?") +
+    " | " + (typeof route.explored === "number" ? route.explored : "?") + " |";
+  return [
+    "## Trireme comparison " + point(source.from) + " \u2192 " + point(source.to),
+    "",
+    "| Scenario | Time (units) | Steps | Explored |",
+    "| --- | --- | --- | --- |",
+    row("Wind", wind),
+    row("Calm", calm),
+    "",
+    verdict,
+    "",
+  ].join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1413,6 +1450,7 @@ if (typeof module !== "undefined" && module.exports) {
     comparisonCsvFilename,
     comparisonToJson,
     comparisonJsonFilename,
+    comparisonToMarkdown,
   };
 }
 
@@ -2334,6 +2372,29 @@ if (typeof document !== "undefined") {
     }
   }
 
+  async function copyComparisonMarkdown() {
+    if (lastComparison === null) {
+      setState("Run a comparison before copying Markdown.", "bad");
+      return;
+    }
+    const text = comparisonToMarkdown(lastComparison);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Comparison Markdown copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
   function exportComparisonJson() {
     if (lastComparison === null) {
       setState("Run a comparison before exporting it.", "bad");
@@ -2473,6 +2534,7 @@ if (typeof document !== "undefined") {
   document.getElementById("compare").addEventListener("click", compare);
   document.getElementById("export-compare-csv").addEventListener("click", exportComparisonCsv);
   document.getElementById("export-compare-json").addEventListener("click", exportComparisonJson);
+  document.getElementById("copy-compare-md").addEventListener("click", copyComparisonMarkdown);
   clearHistory.addEventListener("click", () => {
     localStorage.removeItem(HISTORY_KEY);
     renderHistory();

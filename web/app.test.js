@@ -41,6 +41,7 @@ const {
   comparisonCsvFilename,
   comparisonToJson,
   comparisonJsonFilename,
+  comparisonToMarkdown,
   historyImportSummary,
   formatImportSummary,
   filterHistory,
@@ -134,7 +135,7 @@ test("the page declares every control the script binds", () => {
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
-    "export-compare-csv", "export-compare-json",
+    "export-compare-csv", "export-compare-json", "copy-compare-md",
     "history-title", "history-summary", "copy-history-summary", "undo-history",
     "clear-history", "export-history-csv",
     "export-history", "import-history",
@@ -1071,6 +1072,30 @@ test("comparison JSON is versioned and mirrors the two scenarios", () => {
   assert.match(formatHelpText(), /Export comparison/);
 });
 
+test("comparison Markdown is a labelled table with the saving", () => {
+  const comparison = {
+    query: { from: [0, 2], to: [7, 0] },
+    withWind: { time: 647, steps: ["E", "NE"], explored: 26 },
+    still: { time: 780, steps: ["SE"], explored: 30 },
+  };
+  assert.equal(
+    comparisonToMarkdown(comparison),
+    "## Trireme comparison (0,2) \u2192 (7,0)\n\n" +
+      "| Scenario | Time (units) | Steps | Explored |\n" +
+      "| --- | --- | --- | --- |\n" +
+      "| Wind | 647 | 2 | 26 |\n" +
+      "| Calm | 780 | 1 | 30 |\n\n" +
+      "Saving: 133 units (17% faster).\n"
+  );
+  const slower = comparisonToMarkdown({
+    withWind: { time: 900, steps: [], explored: 1 },
+    still: { time: 600, steps: [], explored: 1 },
+  });
+  assert.match(slower, /Cost: 300 units \(50% slower\)\./);
+  assert.throws(() => comparisonToMarkdown(null), /No comparison/);
+  assert.match(formatHelpText(), /Copy comparison Markdown/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1183,6 +1208,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("export-compare-csv"\)\.addEventListener/);
   assert.match(source, /getElementById\("export-compare-json"\)/);
   assert.match(source, /comparisonToJson\(lastComparison\)/);
+  assert.match(source, /getElementById\("copy-compare-md"\)/);
+  assert.match(source, /comparisonToMarkdown\(lastComparison\)/);
   assert.match(source, /lastComparison = \{ withWind, still, query \}/);
   assert.match(source, /const applyImport = document\.getElementById\("apply-import"\)/);
   assert.match(source, /const cancelImport = document\.getElementById\("cancel-import"\)/);
