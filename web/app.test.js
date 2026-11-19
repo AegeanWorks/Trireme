@@ -33,6 +33,8 @@ const {
   mergeHistory,
   comparisonToCsv,
   comparisonCsvFilename,
+  historyImportSummary,
+  formatImportSummary,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -64,7 +66,8 @@ test("the page declares every control the script binds", () => {
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
     "history-title", "clear-history", "export-history", "import-history",
-    "history-file", "history-list",
+    "history-file", "history-list", "import-preview", "import-preview-text",
+    "apply-import", "cancel-import",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
   }
@@ -388,6 +391,33 @@ test("merging histories dedupes, sorts newest first and caps the result", () => 
   assert.equal(mergeHistory(current, incoming, 3).length, 3);
 });
 
+test("import preview counts new, duplicate and kept entries", () => {
+  const make = (at) => historyEntry({ time: at, steps: [] }, { chart: "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n", from: [0, 0], to: [1, 1] }, at);
+  const older = make(1000);
+  const shared = make(2000);
+  const newer = make(3000);
+  const summary = historyImportSummary([older, shared, newer], [shared], 10);
+  assert.deepEqual(summary, {
+    total: 3,
+    fresh: 2,
+    duplicates: 1,
+    kept: 3,
+    oldest: 1000,
+    newest: 3000,
+  });
+  assert.equal(
+    formatImportSummary(summary),
+    "File: 3 entries (2 new, 1 duplicates)\n" +
+      "After merge: 3 entries kept\n" +
+      "Range: 1970-01-01T00:00:01.000Z \u2192 1970-01-01T00:00:03.000Z"
+  );
+  assert.deepEqual(historyImportSummary([], [], 10), {
+    total: 0, fresh: 0, duplicates: 0, kept: 0, oldest: null, newest: null,
+  });
+  assert.match(formatImportSummary({ total: 0, fresh: 0, duplicates: 0, kept: 0, oldest: null, newest: null }), /Range: \u2014/);
+  assert.throws(() => formatImportSummary(null), /No import/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -417,6 +447,11 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /parseHistoryExport\(await picked\.text\(\)\)/);
   assert.match(source, /getElementById\("export-compare-csv"\)\.addEventListener/);
   assert.match(source, /lastComparison = \{ withWind, still, query \}/);
+  assert.match(source, /const applyImport = document\.getElementById\("apply-import"\)/);
+  assert.match(source, /const cancelImport = document\.getElementById\("cancel-import"\)/);
+  assert.match(source, /applyImport\.addEventListener\("click"/);
+  assert.match(source, /cancelImport\.addEventListener\("click"/);
+  assert.match(source, /historyImportSummary\(incoming, current\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

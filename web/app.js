@@ -420,6 +420,45 @@ function mergeHistory(current, incoming, limit) {
     .slice(0, cap);
 }
 
+function historyImportSummary(incoming, current, limit) {
+  const added = Array.isArray(incoming) ? incoming : [];
+  const existing = Array.isArray(current) ? current : [];
+  const key = (entry) =>
+    JSON.stringify([entry.at, entry.from, entry.to, entry.time]);
+  const known = new Set(existing.map(key));
+  const fresh = added.filter((entry) => !known.has(key(entry))).length;
+  const times = added
+    .filter((entry) => typeof entry.at === "number")
+    .map((entry) => entry.at);
+  return {
+    total: added.length,
+    fresh,
+    duplicates: added.length - fresh,
+    kept: mergeHistory(existing, added, limit).length,
+    oldest: times.length ? Math.min(...times) : null,
+    newest: times.length ? Math.max(...times) : null,
+  };
+}
+
+function formatImportSummary(summary) {
+  if (!summary) {
+    throw new Error("No import to summarize.");
+  }
+  const date = (value) =>
+    value === null || value === undefined ? "\u2014" : new Date(value).toISOString();
+  return [
+    "File: " +
+      summary.total +
+      " entries (" +
+      summary.fresh +
+      " new, " +
+      summary.duplicates +
+      " duplicates)",
+    "After merge: " + summary.kept + " entries kept",
+    "Range: " + date(summary.oldest) + " \u2192 " + date(summary.newest),
+  ].join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -433,6 +472,8 @@ if (typeof module !== "undefined" && module.exports) {
     historyJsonFilename,
     parseHistoryExport,
     mergeHistory,
+    historyImportSummary,
+    formatImportSummary,
     PRESETS,
     point,
     applyPreset,
@@ -475,8 +516,13 @@ if (typeof document !== "undefined") {
   const historyList = document.getElementById("history-list");
   const clearHistory = document.getElementById("clear-history");
   const historyFile = document.getElementById("history-file");
+  const importPreview = document.getElementById("import-preview");
+  const importPreviewText = document.getElementById("import-preview-text");
+  const applyImport = document.getElementById("apply-import");
+  const cancelImport = document.getElementById("cancel-import");
   let lastRoute = null;
   let lastComparison = null;
+  let pendingImport = null;
   let chartName = "chart.txt";
 
   function setState(message, kind) {
@@ -568,14 +614,39 @@ if (typeof document !== "undefined") {
     try {
       const incoming = parseHistoryExport(await picked.text());
       const current = parseHistory(localStorage.getItem(HISTORY_KEY));
-      const merged = mergeHistory(current, incoming);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(merged));
-      historyFile.value = "";
-      renderHistory();
-      setState("Imported " + incoming.length + " entries; " + merged.length + " kept.", "good");
+      pendingImport = incoming;
+      const summary = historyImportSummary(incoming, current);
+      importPreviewText.textContent = formatImportSummary(summary);
+      importPreview.hidden = false;
+      setState("Import parsed; review the preview before applying.", "busy");
     } catch (error) {
+      pendingImport = null;
+      importPreview.hidden = true;
       setState(String(error.message), "bad");
     }
+  }
+
+  function applyPendingImport() {
+    if (!pendingImport) {
+      setState("No import waiting to be applied.", "bad");
+      return;
+    }
+    const current = parseHistory(localStorage.getItem(HISTORY_KEY));
+    const merged = mergeHistory(current, pendingImport);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(merged));
+    const count = pendingImport.length;
+    pendingImport = null;
+    importPreview.hidden = true;
+    historyFile.value = "";
+    renderHistory();
+    setState("Imported " + count + " entries; " + merged.length + " kept.", "good");
+  }
+
+  function cancelPendingImport() {
+    pendingImport = null;
+    importPreview.hidden = true;
+    historyFile.value = "";
+    setState("Import cancelled.", "busy");
   }
 
   function show(route) {
@@ -839,6 +910,8 @@ if (typeof document !== "undefined") {
   document.getElementById("export-history").addEventListener("click", exportHistory);
   document.getElementById("import-history").addEventListener("click", () => historyFile.click());
   historyFile.addEventListener("change", importHistory);
+  applyImport.addEventListener("click", applyPendingImport);
+  cancelImport.addEventListener("click", cancelPendingImport);
   historyList.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-index]");
     if (button) {

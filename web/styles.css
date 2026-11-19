@@ -190,6 +190,17 @@ button:hover { filter: brightness(1.08); }
 .history-text { flex: 1; }
 button.restore { padding: 4px 10px; font-size: 11px; white-space: nowrap; }
 
+.import-preview {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.import-preview[hidden] { display: none; }
+.import-preview h3 { margin: 0 0 8px; font-size: 15px; color: var(--accent); }
+.import-preview .readout { margin-bottom: 12px; }
+
 footer {
   border-top: 1px solid var(--line);
   color: var(--muted);
