@@ -55,4 +55,8 @@ if __name__ == "__main__":
     print('button|copy-bundle|web/index.html#copy-bundle')
     print('file|bundle-file|web/index.html#bundle-file')
     print('button|import-bundle|web/index.html#import-bundle')
+    print('panel|bundle-preview|web/index.html#bundle-preview')
+    print('output|bundle-preview-text|web/index.html#bundle-preview-text')
+    print('button|apply-bundle|web/index.html#apply-bundle')
+    print('button|cancel-bundle|web/index.html#cancel-bundle')
     print('cli|help|--help')

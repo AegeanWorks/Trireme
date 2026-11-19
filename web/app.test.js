@@ -59,6 +59,8 @@ const {
   parseDataBundle,
   bundleFilename,
   bundleImportSummary,
+  bundleApplyPreview,
+  formatBundlePreview,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -85,7 +87,8 @@ test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
-    "import-bundle", "copy-bundle", "reset-local",
+    "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
+    "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
     "file", "plan", "compare", "save",
@@ -632,6 +635,31 @@ test("bundle import summary reports chart and record counts", () => {
   assert.match(formatHelpText(), /Import bundle/);
 });
 
+test("bundle preview reports incoming and kept counts before applying", () => {
+  const chartText = "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n";
+  const preset = buildLocalPreset("P", chartText, "0,0", "3,0");
+  const entry = historyEntry({ time: 3, steps: [] }, { chart: chartText, from: [0, 0], to: [3, 0] }, 1);
+  const bundle = buildDataBundle(chartText, "0,0", "3,0", [preset], [entry]);
+  const preview = bundleApplyPreview(bundle, [preset], [entry]);
+  assert.deepEqual(preview, {
+    from: "0,0",
+    to: "3,0",
+    chartChars: 35,
+    presetsIn: 1,
+    historyIn: 1,
+    presetsKept: 1,
+    historyKept: 1,
+  });
+  assert.equal(
+    formatBundlePreview(preview),
+    "Chart: 35 chars, 0,0 -> 3,0\n" +
+      "Presets: 1 incoming, 1 kept after merge\n" +
+      "History: 1 incoming, 1 kept after merge"
+  );
+  assert.throws(() => bundleApplyPreview(null), /trireme.bundle\/1/);
+  assert.throws(() => formatBundlePreview(null), /No bundle preview/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -664,6 +692,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("import-bundle"\)\.addEventListener/);
   assert.match(source, /bundleFile\.addEventListener\("change", importBundle\)/);
   assert.match(source, /parseDataBundle\(await picked\.text\(\)\)/);
+  assert.match(source, /applyBundleButton\.addEventListener\("click", applyPendingBundle\)/);
+  assert.match(source, /cancelBundleButton\.addEventListener\("click", cancelPendingBundle\)/);
+  assert.match(source, /bundleApplyPreview\(/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

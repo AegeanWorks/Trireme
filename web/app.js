@@ -750,6 +750,34 @@ function bundleImportSummary(bundle) {
   );
 }
 
+function bundleApplyPreview(bundle, currentPresets, currentHistory) {
+  if (!bundle || bundle.schema !== "trireme.bundle/1") {
+    throw new Error("Only a trireme.bundle/1 document can be previewed.");
+  }
+  const presets = Array.isArray(bundle.presets) ? bundle.presets : [];
+  const plans = Array.isArray(bundle.history) ? bundle.history : [];
+  return {
+    from: bundle.chart.from,
+    to: bundle.chart.to,
+    chartChars: String(bundle.chart.chart).length,
+    presetsIn: presets.length,
+    historyIn: plans.length,
+    presetsKept: mergePresetFiles(currentPresets, presets).length,
+    historyKept: mergeHistory(currentHistory, plans).length,
+  };
+}
+
+function formatBundlePreview(preview) {
+  if (!preview) {
+    throw new Error("No bundle preview to format.");
+  }
+  return [
+    "Chart: " + preview.chartChars + " chars, " + preview.from + " -> " + preview.to,
+    "Presets: " + preview.presetsIn + " incoming, " + preview.presetsKept + " kept after merge",
+    "History: " + preview.historyIn + " incoming, " + preview.historyKept + " kept after merge",
+  ].join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -780,6 +808,8 @@ if (typeof module !== "undefined" && module.exports) {
     parseDataBundle,
     bundleFilename,
     bundleImportSummary,
+    bundleApplyPreview,
+    formatBundlePreview,
     normalizePresetName,
     buildLocalPreset,
     parseLocalPresets,
@@ -810,6 +840,10 @@ if (typeof module !== "undefined" && module.exports) {
 
 if (typeof document !== "undefined") {
   const bundleFile = document.getElementById("bundle-file");
+  const bundlePreview = document.getElementById("bundle-preview");
+  const bundlePreviewText = document.getElementById("bundle-preview-text");
+  const applyBundleButton = document.getElementById("apply-bundle");
+  const cancelBundleButton = document.getElementById("cancel-bundle");
   const helpPanel = document.getElementById("help-panel");
   const helpText = document.getElementById("help-text");
   const chart = document.getElementById("chart");
@@ -852,6 +886,7 @@ if (typeof document !== "undefined") {
   let lastComparison = null;
   let pendingImport = null;
   let resetArmed = false;
+  let pendingBundle = null;
   let chartName = "chart.txt";
 
   function setState(message, kind) {
@@ -909,27 +944,55 @@ if (typeof document !== "undefined") {
     }
     try {
       const bundle = parseDataBundle(await picked.text());
-      const summary = bundleImportSummary(bundle);
-      chart.value = bundle.chart.chart;
-      renderIssues();
-      from.value = bundle.chart.from;
-      to.value = bundle.chart.to;
-      chartName = "imported-chart.txt";
-      const presets = mergePresetFiles(storedPresets(), bundle.presets);
-      localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(presets));
-      const history = mergeHistory(
-        parseHistory(localStorage.getItem(HISTORY_KEY)),
-        bundle.history
+      const preview = bundleApplyPreview(
+        bundle,
+        storedPresets(),
+        parseHistory(localStorage.getItem(HISTORY_KEY))
       );
-      localStorage.setItem(HISTORY_KEY, historyToJson(history));
-      bundleFile.value = "";
-      renderLocalPresets();
-      renderHistory();
-      reset();
-      setState(summary + "; " + presets.length + " presets and " + history.length + " plans kept.", "good");
+      pendingBundle = bundle;
+      bundlePreviewText.textContent = formatBundlePreview(preview);
+      bundlePreview.hidden = false;
+      setState("Bundle validated; review the preview before applying.", "busy");
     } catch (error) {
+      pendingBundle = null;
+      bundlePreview.hidden = true;
       setState(String(error.message), "bad");
     }
+  }
+
+  function applyPendingBundle() {
+    if (!pendingBundle) {
+      setState("No bundle waiting to be applied.", "bad");
+      return;
+    }
+    const bundle = pendingBundle;
+    const summary = bundleImportSummary(bundle);
+    chart.value = bundle.chart.chart;
+    renderIssues();
+    from.value = bundle.chart.from;
+    to.value = bundle.chart.to;
+    chartName = "imported-chart.txt";
+    const presets = mergePresetFiles(storedPresets(), bundle.presets);
+    localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(presets));
+    const history = mergeHistory(
+      parseHistory(localStorage.getItem(HISTORY_KEY)),
+      bundle.history
+    );
+    localStorage.setItem(HISTORY_KEY, historyToJson(history));
+    pendingBundle = null;
+    bundlePreview.hidden = true;
+    bundleFile.value = "";
+    renderLocalPresets();
+    renderHistory();
+    reset();
+    setState(summary + "; " + presets.length + " presets and " + history.length + " plans kept.", "good");
+  }
+
+  function cancelPendingBundle() {
+    pendingBundle = null;
+    bundlePreview.hidden = true;
+    bundleFile.value = "";
+    setState("Bundle import cancelled.", "busy");
   }
 
   function handleResetLocal() {
@@ -1462,6 +1525,8 @@ if (typeof document !== "undefined") {
   document.getElementById("copy-bundle").addEventListener("click", copyDataBundle);
   document.getElementById("import-bundle").addEventListener("click", () => bundleFile.click());
   bundleFile.addEventListener("change", importBundle);
+  applyBundleButton.addEventListener("click", applyPendingBundle);
+  cancelBundleButton.addEventListener("click", cancelPendingBundle);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !helpPanel.hidden) {
       closeHelp();
