@@ -109,7 +109,8 @@ pub fn parse(text: &str) -> Result<Chart, String> {
     let mut current_lines: Vec<(((u32, u32), Vec2), usize)> = Vec::new();
 
     for (index, raw) in lines {
-        let number = index + 2;
+        // `index` is 0-based over every line, so the 1-based line is index + 1.
+        let number = index + 1;
         let line = raw.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -495,6 +496,15 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn directive_errors_name_the_actual_line() {
+        let plain = parse("TRIREME-CHART v1\nbogus 1 2\ngrid 2 2\nwind 0 0\n").unwrap_err();
+        assert!(plain.contains("line 2:"), "{plain}");
+        let commented =
+            parse("# note\nTRIREME-CHART v1\nbogus 1 2\ngrid 2 2\nwind 0 0\n").unwrap_err();
+        assert!(commented.contains("line 3:"), "{commented}");
     }
 
     #[test]
