@@ -17,6 +17,7 @@ USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
   trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]
   trireme diff <left> <right> [--summary] [--json]
+  trireme inspect <chart> [--json]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -52,6 +53,7 @@ pub fn run(args: &[String]) -> i32 {
         Some("chart") => cmd_chart(&args[1..]),
         Some("compare") => cmd_compare(&args[1..]),
         Some("diff") => cmd_diff(&args[1..]),
+        Some("inspect") => cmd_inspect(&args[1..]),
         Some("serve") => cmd_serve(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
@@ -396,6 +398,71 @@ fn cmd_chart(args: &[&str]) -> i32 {
     println!("wind ({},{})", sea.wind.dx, sea.wind.dy);
     println!("land {}", sea.land.len());
     println!("currents {}", sea.currents.len());
+    0
+}
+
+fn cmd_inspect(args: &[&str]) -> i32 {
+    let json_output = args.iter().any(|arg| *arg == "--json");
+    let paths: Vec<&str> = args.iter().copied().filter(|arg| *arg != "--json").collect();
+    if paths.len() != 1 || paths[0].starts_with('-') {
+        return fail(
+            "inspect needs exactly one chart file",
+            "One chart yields one inspection report.",
+            "Use: trireme inspect <chart> [--json]",
+        );
+    }
+    let raw = match fs::read_to_string(paths[0]) {
+        Ok(raw) => raw,
+        Err(err) => {
+            return fail(
+                &format!("cannot read chart '{}': {err}", paths[0]),
+                "Inspection needs the original chart text.",
+                "Check the path and permissions, then retry.",
+            )
+        }
+    };
+    if json_output {
+        match web::inspect_json(&raw) {
+            Ok(document) => println!("{document}"),
+            Err(err) => {
+                return fail(&err, "The chart could not be inspected.", "Fix the chart format and retry.")
+            }
+        }
+        return 0;
+    }
+    let problems = chart::issues(&raw);
+    if !problems.is_empty() {
+        println!("INVALID CHART");
+        for issue in &problems {
+            if issue.line == 0 {
+                println!("chart: {}", issue.message);
+            } else {
+                println!("line {}: {}", issue.line, issue.message);
+            }
+        }
+        return 0;
+    }
+    let stats = match chart::parse(&raw) {
+        Ok(sea) => sea.stats(),
+        Err(err) => return fail(&err, "The chart could not be parsed.", "Fix the chart format and retry."),
+    };
+    let value = match chart::fingerprint(&raw) {
+        Ok(value) => value,
+        Err(err) => return fail(&err, "The chart could not be fingerprinted.", "Fix the chart format and retry."),
+    };
+    println!("TRIREME INSPECTION");
+    println!(
+        "{}x{} grid \u{b7} {} cells \u{b7} {} land \u{b7} {} currents \u{b7} wind ({},{})",
+        stats.width,
+        stats.height,
+        stats.cells,
+        stats.land,
+        stats.currents,
+        stats.wind.dx,
+        stats.wind.dy
+    );
+    println!("fingerprint {value}");
+    println!("valid: yes");
     0
 }
 

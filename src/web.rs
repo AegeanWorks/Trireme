@@ -230,7 +230,15 @@ pub fn api_inspect(body: &str) -> String {
         Ok(text) => text,
         Err(err) => return response(400, "application/json", &error_json(&err)),
     };
-    let found = chart::issues(&raw);
+    match inspect_json(&raw) {
+        Ok(document) => response(200, "application/json", &document),
+        Err(err) => response(400, "application/json", &error_json(&err)),
+    }
+}
+
+/// Builds the shared inspection document for a chart's text.
+pub fn inspect_json(text: &str) -> Result<String, String> {
+    let found = chart::issues(text);
     if !found.is_empty() {
         let items: Vec<String> = found
             .iter()
@@ -242,36 +250,24 @@ pub fn api_inspect(body: &str) -> String {
                 )
             })
             .collect();
-        return response(
-            200,
-            "application/json",
-            &format!("{{\"ok\":true,\"valid\":false,\"issues\":[{}]}}", items.join(",")),
-        );
+        return Ok(format!(
+            "{{\"ok\":true,\"valid\":false,\"issues\":[{}]}}",
+            items.join(",")
+        ));
     }
-    let stats = chart::parse(&raw).map(|sea| sea.stats());
-    let stats = match stats {
-        Ok(stats) => stats,
-        Err(err) => return response(400, "application/json", &error_json(&err)),
-    };
-    let value = match chart::fingerprint(&raw) {
-        Ok(value) => value,
-        Err(err) => return response(400, "application/json", &error_json(&err)),
-    };
-    response(
-        200,
-        "application/json",
-        &format!(
-            "{{\"ok\":true,\"valid\":true,\"fingerprint\":{},\"width\":{},\"height\":{},\"cells\":{},\"land\":{},\"currents\":{},\"wind\":[{},{}]}}",
-            json::quote(&value),
-            stats.width,
-            stats.height,
-            stats.cells,
-            stats.land,
-            stats.currents,
-            stats.wind.dx,
-            stats.wind.dy
-        ),
-    )
+    let stats = chart::parse(text).map(|sea| sea.stats())?;
+    let value = chart::fingerprint(text)?;
+    Ok(format!(
+        "{{\"ok\":true,\"valid\":true,\"fingerprint\":{},\"width\":{},\"height\":{},\"cells\":{},\"land\":{},\"currents\":{},\"wind\":[{},{}]}}",
+        json::quote(&value),
+        stats.width,
+        stats.height,
+        stats.cells,
+        stats.land,
+        stats.currents,
+        stats.wind.dx,
+        stats.wind.dy
+    ))
 }
 
 /// Returns counts-only summary of two charts from the Rust core.
@@ -638,6 +634,17 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn inspect_json_is_shared_and_validates() {
+        let text = "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n";
+        let doc = inspect_json(text).unwrap();
+        assert!(doc.contains("\"valid\":true"));
+        assert!(doc.contains("\"cells\":4"));
+        assert!(inspect_json("TRIREME-CHART v1\nwind 2 0\n")
+            .unwrap()
+            .contains("\"valid\":false"));
     }
 
     #[test]

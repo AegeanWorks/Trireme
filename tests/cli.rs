@@ -107,6 +107,29 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn inspect_reports_stats_fingerprint_and_issues() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 4 3\nwind 1 0\nland 2 2\n");
+    let text = ok_text(&run(&["inspect", &chart]));
+    assert!(text.contains("TRIREME INSPECTION"));
+    assert!(text.contains("4x3 grid \u{b7} 12 cells"));
+    assert!(text.contains("fingerprint "));
+    assert!(text.contains("valid: yes"));
+    let json = ok_text(&run(&["inspect", &chart, "--json"]));
+    assert!(json.contains("\"valid\":true"));
+    assert!(json.contains("\"cells\":12"));
+    assert!(json.contains("\"fingerprint\":\""));
+    let bad = scratch.chart("wind 2 0\n");
+    let bad_text = ok_text(&run(&["inspect", &bad]));
+    assert!(bad_text.contains("INVALID CHART"));
+    assert!(bad_text.contains("wind <dx>"));
+    let bad_json = ok_text(&run(&["inspect", &bad, "--json"]));
+    assert!(bad_json.contains("\"valid\":false"));
+    let missing = run(&["inspect"]);
+    assert_eq!(missing.status.code(), Some(2));
+}
+
+#[test]
 fn diff_summary_reports_only_counts() {
     let scratch = Scratch::new();
     let left = scratch.chart("grid 3 1\nwind 0 0\n");
