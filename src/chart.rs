@@ -243,6 +243,13 @@ pub fn calm(text: &str) -> Result<String, String> {
     Ok(out.join("\n"))
 }
 
+/// Returns a canonical form: header, grid, wind, then land and currents
+/// sorted by coordinate. Comments and original directive order are dropped,
+/// so two charts of the same sea produce identical text.
+pub fn normalize(text: &str) -> Result<String, String> {
+    Ok(to_text(&parse(text)?))
+}
+
 /// One line-numbered problem found in a chart.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChartIssue {
@@ -400,6 +407,24 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn normalize_sorts_directives_and_is_idempotent() {
+        let text = concat!(
+            "# note\nTRIREME-CHART v1\ncurrent 3 0 0 1\nwind 1 0\n",
+            "land 2 2\ngrid 4 3\nland 0 1\ncurrent 1 1 -1 0\n"
+        );
+        let once = normalize(text).unwrap();
+        assert_eq!(
+            once,
+            concat!(
+                "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\n",
+                "land 0 1\nland 2 2\ncurrent 1 1 -1 0\ncurrent 3 0 0 1\n"
+            )
+        );
+        assert_eq!(normalize(&once).unwrap(), once);
+        assert!(normalize("grid 2 2\nwind 0 0\n").is_err());
     }
 
     #[test]

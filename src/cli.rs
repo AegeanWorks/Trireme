@@ -15,7 +15,7 @@ trireme — offline sailing route planner for small sea charts
 
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
-  trireme chart <chart> [--json] [--calm|--stats|--issues]
+  trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -210,28 +210,51 @@ fn cmd_chart(args: &[&str]) -> i32 {
     let calm_output = args.iter().any(|arg| *arg == "--calm");
     let stats_output = args.iter().any(|arg| *arg == "--stats");
     let issues_output = args.iter().any(|arg| *arg == "--issues");
+    let normalize_output = args.iter().any(|arg| *arg == "--normalize");
     let paths: Vec<&str> = args
         .iter()
         .copied()
-        .filter(|arg| !matches!(*arg, "--json" | "--calm" | "--stats" | "--issues"))
+        .filter(|arg| !matches!(*arg, "--json" | "--calm" | "--stats" | "--issues" | "--normalize"))
         .collect();
     if paths.len() != 1 || paths[0].starts_with('-') {
         return fail(
             "chart needs exactly one chart file",
             "Describing a chart requires a single source.",
-            "Use: trireme chart <chart> [--json] [--calm|--stats|--issues]",
+            "Use: trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize]",
         );
     }
-    let views = [calm_output, stats_output, issues_output]
+    let views = [calm_output, stats_output, issues_output, normalize_output]
         .iter()
         .filter(|selected| **selected)
         .count();
     if views > 1 {
         return fail(
-            "--calm, --stats and --issues cannot be combined",
+            "--calm, --stats, --issues and --normalize cannot be combined",
             "Each flag selects one view of the chart.",
             "Run the command once per view.",
         );
+    }
+    if normalize_output {
+        let raw = match fs::read_to_string(paths[0]) {
+            Ok(raw) => raw,
+            Err(err) => {
+                return fail(
+                    &format!("cannot read chart '{}': {err}", paths[0]),
+                    "Normalizing needs the original chart text.",
+                    "Check the path and permissions, then retry.",
+                )
+            }
+        };
+        let canonical = match chart::normalize(&raw) {
+            Ok(text) => text,
+            Err(err) => return fail(&err, "The chart must be valid before it can be normalized.", "Fix the named chart problem and retry."),
+        };
+        if json_output {
+            println!("{{\"ok\":true,\"chart\":{}}}", json::quote(&canonical));
+        } else {
+            print!("{canonical}");
+        }
+        return 0;
     }
     if issues_output {
         let raw = match fs::read_to_string(paths[0]) {

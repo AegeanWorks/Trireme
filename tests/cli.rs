@@ -107,6 +107,21 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn chart_normalize_produces_a_canonical_chart() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("current 1 1 0 1\nwind 1 0\nland 2 2\ngrid 3 3\n");
+    let out = ok_text(&run(&["chart", &chart, "--normalize"]));
+    assert!(out.starts_with("TRIREME-CHART v1\ngrid 3 3\nwind 1 0\n"));
+    assert!(out.contains("land 2 2\ncurrent 1 1 0 1\n"));
+    assert_eq!(out, ok_text(&run(&["chart", &chart, "--normalize"])));
+    let json = ok_text(&run(&["chart", &chart, "--normalize", "--json"]));
+    assert!(json.contains("\"ok\":true"));
+    assert!(json.contains("grid 3 3\\nwind 1 0"));
+    let combined = run(&["chart", &chart, "--normalize", "--stats"]);
+    assert_eq!(combined.status.code(), Some(2));
+}
+
+#[test]
 fn chart_issues_reports_every_problem_in_text_and_json() {
     let scratch = Scratch::new();
     let chart = scratch.chart("grid 3 1\nwind 2 0\nunknown 7\n");
