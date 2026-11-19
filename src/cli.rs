@@ -15,7 +15,7 @@ trireme — offline sailing route planner for small sea charts
 
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
-  trireme chart <chart> [--json] [--calm]
+  trireme chart <chart> [--json] [--calm|--stats]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -208,17 +208,56 @@ fn cmd_route(args: &[&str]) -> i32 {
 fn cmd_chart(args: &[&str]) -> i32 {
     let json_output = args.iter().any(|arg| *arg == "--json");
     let calm_output = args.iter().any(|arg| *arg == "--calm");
+    let stats_output = args.iter().any(|arg| *arg == "--stats");
     let paths: Vec<&str> = args
         .iter()
         .copied()
-        .filter(|arg| *arg != "--json" && *arg != "--calm")
+        .filter(|arg| *arg != "--json" && *arg != "--calm" && *arg != "--stats")
         .collect();
     if paths.len() != 1 || paths[0].starts_with('-') {
         return fail(
             "chart needs exactly one chart file",
             "Describing a chart requires a single source.",
-            "Use: trireme chart <chart> [--json] [--calm]",
+            "Use: trireme chart <chart> [--json] [--calm|--stats]",
         );
+    }
+    if calm_output && stats_output {
+        return fail(
+            "--calm and --stats cannot be combined",
+            "Each flag selects one view of the chart.",
+            "Run the command twice, once with each flag.",
+        );
+    }
+    if stats_output {
+        let sea = match read_chart(paths[0]) {
+            Ok(sea) => sea,
+            Err(code) => return code,
+        };
+        let stats = sea.stats();
+        if json_output {
+            println!(
+                "{{\"ok\":true,\"width\":{},\"height\":{},\"cells\":{},\"land\":{},\"currents\":{},\"wind\":[{},{}]}}",
+                stats.width,
+                stats.height,
+                stats.cells,
+                stats.land,
+                stats.currents,
+                stats.wind.dx,
+                stats.wind.dy
+            );
+        } else {
+            println!(
+                "{}x{} grid \u{b7} {} cells \u{b7} {} land \u{b7} {} currents \u{b7} wind ({},{})",
+                stats.width,
+                stats.height,
+                stats.cells,
+                stats.land,
+                stats.currents,
+                stats.wind.dx,
+                stats.wind.dy
+            );
+        }
+        return 0;
     }
     if calm_output {
         let raw = match fs::read_to_string(paths[0]) {

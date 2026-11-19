@@ -39,6 +39,17 @@ pub struct Chart {
     pub currents: HashMap<(u32, u32), Vec2>,
 }
 
+/// Counts derived from a parsed chart.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ChartStats {
+    pub width: u32,
+    pub height: u32,
+    pub cells: u64,
+    pub land: usize,
+    pub currents: usize,
+    pub wind: Vec2,
+}
+
 impl Chart {
     /// Whether a point is inside the grid.
     pub fn contains(&self, point: (u32, u32)) -> bool {
@@ -53,6 +64,18 @@ impl Chart {
     /// Local current at a point, or still water.
     pub fn current_at(&self, point: (u32, u32)) -> Vec2 {
         self.currents.get(&point).copied().unwrap_or_else(Vec2::calm)
+    }
+
+    /// Summarises the chart's size and contents.
+    pub fn stats(&self) -> ChartStats {
+        ChartStats {
+            width: self.width,
+            height: self.height,
+            cells: u64::from(self.width) * u64::from(self.height),
+            land: self.land.len(),
+            currents: self.currents.len(),
+            wind: self.wind,
+        }
     }
 }
 
@@ -263,6 +286,22 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn stats_count_cells_land_and_currents() {
+        let chart = parse(CHART).unwrap();
+        assert_eq!(
+            chart.stats(),
+            ChartStats {
+                width: 4,
+                height: 3,
+                cells: 12,
+                land: 1,
+                currents: 1,
+                wind: Vec2::new(1, 0).unwrap(),
+            }
+        );
     }
 
     #[test]

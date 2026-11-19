@@ -107,6 +107,20 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn chart_stats_reports_counts_in_text_and_json() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 4 3\nwind 1 0\nland 2 2\ncurrent 1 1 0 1\n");
+    let text = ok_text(&run(&["chart", &chart, "--stats"]));
+    assert_eq!(text.trim(), "4x3 grid \u{b7} 12 cells \u{b7} 1 land \u{b7} 1 currents \u{b7} wind (1,0)");
+    let json = ok_text(&run(&["chart", &chart, "--stats", "--json"]));
+    assert!(json.contains("\"cells\":12"));
+    assert!(json.contains("\"land\":1"));
+    assert!(json.contains("\"wind\":[1,0]"));
+    let both = run(&["chart", &chart, "--stats", "--calm"]);
+    assert_eq!(both.status.code(), Some(2));
+}
+
+#[test]
 fn chart_calm_zeroes_wind_and_currents_for_the_same_geography() {
     let scratch = Scratch::new();
     let chart = scratch.chart("# note\ngrid 4 3\nwind 1 -1\nland 2 2\ncurrent 1 1 0 1\n");

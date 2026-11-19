@@ -2,7 +2,7 @@
 
 const HELP_SECTIONS = {
   commands: [
-    ["chart <file> [--json] [--calm]", "Describe a chart or print its calm-water copy"],
+    ["chart <file> [--json] [--calm|--stats]", "Describe, calm or summarize a chart"],
     ["compare <file> --from X,Y --to X,Y [--json]", "Compare wind with the calm baseline"],
     ["route <file> --from X,Y --to X,Y [--ascii] [--json]", "Plan the fastest route"],
     ["serve [--port N] [--project DIR]", "Serve this browser UI on 127.0.0.1"],
