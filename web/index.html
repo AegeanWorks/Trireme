@@ -55,6 +55,7 @@ current 6 1 -1 0</textarea>
       </div>
       <div class="actions">
         <button id="plan" type="button">Plan route</button>
+        <button id="compare" type="button" class="secondary">Compare with calm</button>
         <button id="save" type="button" class="secondary">Save chart</button>
         <button id="load" type="button" class="secondary">Load saved</button>
         <button id="import" type="button" class="secondary">Import file</button>
@@ -86,6 +87,15 @@ current 6 1 -1 0</textarea>
         <pre id="map" class="map" aria-label="Route map">&mdash;</pre>
       </label>
       <p class="legend"><b>S</b> start &middot; <b>G</b> goal &middot; <b>o</b> route &middot; <b>#</b> land &middot; <b>~</b> water</p>
+      <section id="compare-panel" class="compare" hidden aria-labelledby="compare-title">
+        <h3 id="compare-title">Calm-water comparison</h3>
+        <p id="compare-summary" class="compare-line">&mdash;</p>
+        <div class="compare-grid">
+          <div><span class="metric-label">With wind + current</span><strong id="compare-current">&mdash;</strong></div>
+          <div><span class="metric-label">Calm water</span><strong id="compare-calm">&mdash;</strong></div>
+          <div><span class="metric-label">Difference</span><strong id="compare-delta">&mdash;</strong></div>
+        </div>
+      </section>
     </section>
   </main>
 

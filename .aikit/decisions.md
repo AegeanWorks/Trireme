@@ -32,3 +32,10 @@ contract, a dependency, a data format or the architecture; IDs are consecutive a
 - **Context**: A point-and-click surface was needed without crates or a build step, and CLI and browser had to agree on one route document.
 - **Decision**: Serve web/ from src/web.rs, put JSON parsing in src/json.rs, share web::route_json with route --json, and add chart --json.
 - **Consequences**: One route shape serves API and CLI and embedded-looking keys are rejected; the cost is a hand-written HTTP/JSON layer with explicit tests.
+
+### ADR-004: Calm-water comparison zeroes wind and current vectors
+- **Date**: 2026-11-19
+- **Status**: Accepted
+- **Context**: A comparison view needs an unambiguous baseline for the same grid and endpoints.
+- **Decision**: Derive the calm chart in the client by replacing wind with 0 0 and every local current with 0 0, keeping land and grid unchanged.
+- **Consequences**: The comparison isolates weather from geography and needs no server change; the cost is one more client helper with its own tests.

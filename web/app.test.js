@@ -11,6 +11,8 @@ const {
   applyPreset,
   chartFilename,
   validateChartText,
+  calmChartText,
+  compareSummary,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -36,8 +38,9 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
-    "chart", "from", "to", "preset", "file", "plan", "save", "load",
-    "import", "download", "export", "map",
+    "chart", "from", "to", "preset", "file", "plan", "compare", "save",
+    "load", "import", "download", "export", "map", "compare-panel",
+    "compare-summary", "compare-current", "compare-calm", "compare-delta",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
   }
@@ -74,11 +77,48 @@ test("chart import validates the header grid and wind", () => {
   }
 });
 
+test("calm charts keep the geometry but zero wind and currents", () => {
+  const chart =
+    "TRIREME-CHART v1\r\n# keep me\r\ngrid 6 4\r\nwind 1 -1\r\n" +
+    "land 3 2\r\ncurrent 5 2 0 -1\r\ncurrent 6 1 -1 0\r\n";
+  const calm = calmChartText(chart);
+  assert.match(calm, /# keep me/);
+  assert.match(calm, /grid 6 4/);
+  assert.match(calm, /land 3 2/);
+  assert.match(calm, /\nwind 0 0\n/);
+  assert.match(calm, /current 5 2 0 0/);
+  assert.match(calm, /current 6 1 0 0/);
+  assert.doesNotMatch(calm, /wind 1 -1/);
+  assert.equal(calmChartText(calm), calm);
+  assert.throws(() => calmChartText("grid 2 2\nwind 0 0\n"));
+});
+
+test("comparison summaries say who was faster", () => {
+  assert.equal(
+    compareSummary({ time: 400 }, { time: 800 }),
+    "Wind and current save 400 units (50% faster)."
+  );
+  assert.equal(
+    compareSummary({ time: 600 }, { time: 400 }),
+    "Wind and current cost 200 units (50% slower)."
+  );
+  assert.equal(
+    compareSummary({ time: 300 }, { time: 300 }),
+    "No difference: both routes take 300 units."
+  );
+  assert.equal(
+    compareSummary({ time: 0 }, { time: 0 }),
+    "No difference: both routes take 0 units."
+  );
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
   assert.match(source, /getElementById\("download"\)\.addEventListener/);
   assert.match(source, /link\.download = chartName/);
+  assert.match(source, /getElementById\("compare"\)\.addEventListener/);
+  assert.match(source, /Promise\.all\(\[ask\(query\), ask\(calm\)\]\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

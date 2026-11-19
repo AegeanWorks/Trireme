@@ -72,6 +72,35 @@ function validateChartText(text) {
   return normalized;
 }
 
+function calmChartText(text) {
+  return validateChartText(text)
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (/^wind\s+-?[01]\s+-?[01]$/.test(trimmed)) {
+        return "wind 0 0";
+      }
+      const flow = /^(current\s+\d+\s+\d+\s+)-?[01]\s+-?[01]$/.exec(trimmed);
+      if (flow) {
+        return flow[1] + "0 0";
+      }
+      return line;
+    })
+    .join("\n");
+}
+
+function compareSummary(current, calm) {
+  const delta = calm.time - current.time;
+  if (delta === 0 || calm.time === 0) {
+    return "No difference: both routes take " + current.time + " units.";
+  }
+  const percent = Math.round((Math.abs(delta) / calm.time) * 100);
+  if (delta > 0) {
+    return "Wind and current save " + delta + " units (" + percent + "% faster).";
+  }
+  return "Wind and current cost " + -delta + " units (" + percent + "% slower).";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     PRESETS,
@@ -79,6 +108,8 @@ if (typeof module !== "undefined" && module.exports) {
     applyPreset,
     chartFilename,
     validateChartText,
+    calmChartText,
+    compareSummary,
   };
 }
 
@@ -95,6 +126,11 @@ if (typeof document !== "undefined") {
   const headings = document.getElementById("headings");
   const waypoints = document.getElementById("waypoints");
   const map = document.getElementById("map");
+  const comparePanel = document.getElementById("compare-panel");
+  const compareSummaryText = document.getElementById("compare-summary");
+  const compareCurrent = document.getElementById("compare-current");
+  const compareCalm = document.getElementById("compare-calm");
+  const compareDelta = document.getElementById("compare-delta");
   let lastRoute = null;
   let chartName = "chart.txt";
 
@@ -121,6 +157,7 @@ if (typeof document !== "undefined") {
     headings.textContent = "\u2014";
     waypoints.textContent = "\u2014";
     map.textContent = "\u2014";
+    comparePanel.hidden = true;
     lastRoute = null;
   }
 
@@ -203,30 +240,72 @@ if (typeof document !== "undefined") {
     setState("Route exported as trireme-route.json.", "good");
   }
 
+  async function ask(query) {
+    const response = await fetch("/api/route", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(query),
+    });
+    return response.json();
+  }
+
+  function currentQuery() {
+    validateChartText(chart.value);
+    return { chart: chart.value, from: point(from.value), to: point(to.value) };
+  }
+
   async function plan() {
     setState("Planning\u2026", "busy");
     reset();
     let query;
     try {
-      query = { chart: chart.value, from: point(from.value), to: point(to.value) };
+      query = currentQuery();
     } catch (error) {
       setState(String(error.message), "bad");
       return;
     }
     try {
-      const response = await fetch("/api/route", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(query),
-      });
-      const result = await response.json();
+      const result = await ask(query);
       if (result.ok) {
         lastRoute = result;
+        comparePanel.hidden = true;
         setState("Route found.", "good");
         show(result);
       } else {
         setState(result.error || "No route found.", "bad");
       }
+    } catch (error) {
+      setState("Could not reach the planner: " + error, "bad");
+    }
+  }
+
+  async function compare() {
+    setState("Comparing\u2026", "busy");
+    let query;
+    try {
+      query = currentQuery();
+    } catch (error) {
+      setState(String(error.message), "bad");
+      return;
+    }
+    try {
+      const calm = { ...query, chart: calmChartText(query.chart) };
+      const [withWind, still] = await Promise.all([ask(query), ask(calm)]);
+      if (!withWind.ok || !still.ok) {
+        comparePanel.hidden = true;
+        setState(withWind.error || still.error || "No route found.", "bad");
+        return;
+      }
+      comparePanel.hidden = false;
+      compareSummaryText.textContent = compareSummary(withWind, still);
+      compareCurrent.textContent = withWind.time + " units";
+      compareCalm.textContent = still.time + " units";
+      const saved = still.time - withWind.time;
+      compareDelta.textContent =
+        (saved > 0 ? "-" : saved < 0 ? "+" : "") + Math.abs(saved) + " units";
+      lastRoute = withWind;
+      show(withWind);
+      setState("Compared the chart with calm water.", "good");
     } catch (error) {
       setState("Could not reach the planner: " + error, "bad");
     }
@@ -238,6 +317,7 @@ if (typeof document !== "undefined") {
   document.getElementById("import").addEventListener("click", importChart);
   document.getElementById("download").addEventListener("click", downloadChart);
   document.getElementById("export").addEventListener("click", exportRoute);
+  document.getElementById("compare").addEventListener("click", compare);
   preset.addEventListener("change", () => {
     const selection = applyPreset(preset.value);
     chart.value = selection.chart;

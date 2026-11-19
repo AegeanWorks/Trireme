@@ -9,6 +9,8 @@ if __name__ == "__main__":
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')
     print('button|plan|web/index.html#plan')
+    print('button|compare|web/index.html#compare')
+    print('output|compare-summary|web/index.html#compare-summary')
     print('button|save|web/index.html#save')
     print('button|load|web/index.html#load')
     print('file|chart-file|web/index.html#file')

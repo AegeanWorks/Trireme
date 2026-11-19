@@ -148,6 +148,19 @@ button:hover { filter: brightness(1.08); }
 .legend { color: var(--muted); font-size: 12px; }
 .legend b { color: var(--accent); }
 
+.compare {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.compare[hidden] { display: none; }
+.compare h3 { margin: 0 0 6px; font-size: 16px; color: var(--accent); }
+.compare-line { margin: 0 0 12px; font-weight: 600; }
+.compare-grid { display: flex; flex-wrap: wrap; gap: 24px; }
+.compare-grid strong { font-family: var(--mono); font-size: 18px; }
+
 footer {
   border-top: 1px solid var(--line);
   color: var(--muted);
