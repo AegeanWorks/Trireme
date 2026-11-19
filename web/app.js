@@ -27,6 +27,7 @@ const HELP_SECTIONS = {
     ["Duplicate preset", "Copy the selected saved preset under a new name"],
     ["Filter presets", "Search saved presets by name, chart or endpoints"],
     ["Sort presets", "Order saved presets by name or chart size"],
+    ["Compare presets", "Show a line-by-line diff of two saved charts"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -965,6 +966,65 @@ function formatChartStats(stats) {
   );
 }
 
+function diffCharts(leftText, rightText) {
+  const lines = (text) => {
+    const all = String(text || "").replace(/\r\n?/g, "\n").split("\n");
+    if (all.length && all[all.length - 1] === "") {
+      all.pop();
+    }
+    return all;
+  };
+  const left = lines(leftText);
+  const right = lines(rightText);
+  const rows = [];
+  const total = Math.max(left.length, right.length);
+  const counts = { added: 0, removed: 0, changed: 0 };
+  for (let index = 0; index < total; index += 1) {
+    const before = left[index];
+    const after = right[index];
+    if (before === after) {
+      continue;
+    }
+    if (before === undefined) {
+      rows.push({ line: index + 1, kind: "added", left: "", right: after });
+      counts.added += 1;
+    } else if (after === undefined) {
+      rows.push({ line: index + 1, kind: "removed", left: before, right: "" });
+      counts.removed += 1;
+    } else {
+      rows.push({ line: index + 1, kind: "changed", left: before, right: after });
+      counts.changed += 1;
+    }
+  }
+  return { rows, ...counts };
+}
+
+function formatChartDiff(diff) {
+  if (!diff || !Array.isArray(diff.rows)) {
+    throw new Error("No chart diff to format.");
+  }
+  const lines = [
+    "Chart diff: " +
+      diff.changed +
+      " changed, " +
+      diff.added +
+      " added, " +
+      diff.removed +
+      " removed",
+  ];
+  for (const row of diff.rows) {
+    if (row.kind === "changed") {
+      lines.push(row.line + " - " + row.left);
+      lines.push(row.line + " + " + row.right);
+    } else if (row.kind === "added") {
+      lines.push(row.line + " + " + row.right);
+    } else {
+      lines.push(row.line + " - " + row.left);
+    }
+  }
+  return lines.join("\n");
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1023,6 +1083,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartIssues,
     chartStats,
     formatChartStats,
+    diffCharts,
+    formatChartDiff,
     calmChartText,
     compareSummary,
     csvCell,
@@ -1052,6 +1114,10 @@ if (typeof document !== "undefined") {
   const localPreset = document.getElementById("local-preset");
   const presetFilter = document.getElementById("preset-filter");
   const presetSort = document.getElementById("preset-sort");
+  const diffLeft = document.getElementById("diff-left");
+  const diffRight = document.getElementById("diff-right");
+  const diffOutput = document.getElementById("diff-output");
+  const comparePresetsButton = document.getElementById("compare-presets");
   const presetFilterStatus = document.getElementById("preset-filter-status");
   const presetsFile = document.getElementById("presets-file");
   const exportPresetsButton = document.getElementById("export-presets");
@@ -1258,6 +1324,47 @@ if (typeof document !== "undefined") {
     if (visible.length && !visible.some((item) => item.name === localPreset.value)) {
       localPreset.value = "";
     }
+    renderDiffSelects(saved);
+  }
+
+  function renderDiffSelects(saved) {
+    const previous = [diffLeft.value, diffRight.value];
+    for (const select of [diffLeft, diffRight]) {
+      select.replaceChildren();
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = saved.length ? "Select a preset…" : "No saved presets";
+      select.appendChild(placeholder);
+      for (const item of saved) {
+        const option = document.createElement("option");
+        option.value = item.name;
+        option.textContent = item.name;
+        select.appendChild(option);
+      }
+    }
+    if (previous[0] && saved.some((item) => item.name === previous[0])) {
+      diffLeft.value = previous[0];
+    }
+    if (previous[1] && saved.some((item) => item.name === previous[1])) {
+      diffRight.value = previous[1];
+    }
+  }
+
+  function compareSavedPresets() {
+    const saved = storedPresets();
+    const left = saved.find((item) => item.name === diffLeft.value);
+    const right = saved.find((item) => item.name === diffRight.value);
+    if (!left || !right) {
+      setState("Choose two saved presets to compare.", "bad");
+      return;
+    }
+    if (left.name === right.name) {
+      diffOutput.textContent = "Select two different presets.";
+      setState("Select two different presets.", "bad");
+      return;
+    }
+    diffOutput.textContent = formatChartDiff(diffCharts(left.chart, right.chart));
+    setState("Compared '" + left.name + "' with '" + right.name + "'.", "good");
   }
 
   function saveNamedPreset() {
@@ -1803,6 +1910,7 @@ if (typeof document !== "undefined") {
   deletePresetButton.addEventListener("click", deleteSelectedPreset);
   renamePresetButton.addEventListener("click", renameSelectedPreset);
   duplicatePresetButton.addEventListener("click", duplicateSelectedPreset);
+  comparePresetsButton.addEventListener("click", compareSavedPresets);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();

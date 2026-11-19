@@ -84,6 +84,18 @@
         <input id="duplicate-preset-name" type="text" spellcheck="false" placeholder="Copy name">
         <button id="duplicate-preset" type="button" class="secondary">Duplicate preset</button>
       </div>
+      <div class="endpoints">
+        <label class="field">
+          <span>Compare left</span>
+          <select id="diff-left"><option value="">Select a preset…</option></select>
+        </label>
+        <label class="field">
+          <span>Compare right</span>
+          <select id="diff-right"><option value="">Select a preset…</option></select>
+        </label>
+      </div>
+      <button id="compare-presets" type="button" class="secondary">Compare presets</button>
+      <pre id="diff-output" class="readout">&mdash;</pre>
       <label class="field">
         <span>Chart</span>
         <textarea id="chart" rows="10" spellcheck="false">TRIREME-CHART v1

@@ -71,6 +71,8 @@ const {
   historyCsvFilename,
   chartStats,
   formatChartStats,
+  diffCharts,
+  formatChartDiff,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -104,6 +106,7 @@ test("the page declares every control the script binds", () => {
     "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
+    "diff-left", "diff-right", "compare-presets", "diff-output",
     "file", "plan", "clear-editor", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
@@ -785,6 +788,28 @@ test("chart statistics summarize grid, land, currents and wind", () => {
   assert.throws(() => formatChartStats(null), /No chart statistics/);
 });
 
+test("chart diff reports changed, added and removed lines", () => {
+  const left = "TRIREME-CHART v1\r\ngrid 4 1\r\nwind 0 0";
+  const right = "TRIREME-CHART v1\ngrid 4 1\nwind 1 0\nland 2 0\n";
+  const diff = diffCharts(left, right);
+  assert.equal(diff.changed, 1);
+  assert.equal(diff.added, 1);
+  assert.equal(diff.removed, 0);
+  assert.equal(
+    formatChartDiff(diff),
+    "Chart diff: 1 changed, 1 added, 0 removed\n" +
+      "3 - wind 0 0\n" +
+      "3 + wind 1 0\n" +
+      "4 + land 2 0"
+  );
+  const identical = diffCharts(left, left.replace(/\r\n/g, "\n"));
+  assert.equal(formatChartDiff(identical), "Chart diff: 0 changed, 0 added, 0 removed");
+  const shorter = diffCharts("a\nb\nc", "a\nb");
+  assert.equal(shorter.removed, 1);
+  assert.match(formatChartDiff(shorter), /3 - c/);
+  assert.throws(() => formatChartDiff(null), /No chart diff/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -834,6 +859,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /sortLocalPresets\(/);
   assert.match(source, /getElementById\("export-history-csv"\)\.addEventListener\("click", exportHistoryCsv\)/);
   assert.match(source, /historyToCsv\(entries\)/);
+  assert.match(source, /getElementById\("compare-presets"\)/);
+  assert.match(source, /comparePresetsButton\.addEventListener\("click", compareSavedPresets\)/);
+  assert.match(source, /diffCharts\(left\.chart, right\.chart\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
