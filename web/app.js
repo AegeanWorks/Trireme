@@ -30,6 +30,7 @@ const HELP_SECTIONS = {
     ["Canonicalize", "Replace the chart with its Rust-normalized form"],
     ["Copy fingerprint", "Copy the stable ID of the current chart"],
     ["Inspect chart", "Show Rust stats, fingerprint and issues together"],
+    ["Export inspection", "Save the inspection document as versioned JSON"],
     ["Copy preset stats", "Copy stats for the selected saved preset"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
@@ -220,6 +221,25 @@ function parseInspectResponse(result) {
     },
     issues,
   };
+}
+
+function inspectionToJson(inspect) {
+  if (!inspect || typeof inspect.valid !== "boolean") {
+    throw new Error("No inspection to export.");
+  }
+  return JSON.stringify(
+    {
+      schema: "trireme.inspection/1",
+      generatedBy: "trireme-web",
+      inspection: inspect,
+    },
+    null,
+    2
+  ) + "\n";
+}
+
+function inspectionJsonFilename() {
+  return "trireme-inspection.json";
 }
 
 function formatInspectForClipboard(inspect) {
@@ -1668,6 +1688,8 @@ if (typeof module !== "undefined" && module.exports) {
     inspectRequestBody,
     parseInspectResponse,
     formatInspectForClipboard,
+    inspectionToJson,
+    inspectionJsonFilename,
     formatFingerprintForClipboard,
     formatIssuesForClipboard,
     chartStats,
@@ -1758,6 +1780,7 @@ if (typeof document !== "undefined") {
   const copyFingerprintButton = document.getElementById("copy-fingerprint");
   const inspectButton = document.getElementById("inspect-chart");
   const inspectOutput = document.getElementById("inspect-output");
+  const exportInspectionButton = document.getElementById("export-inspection");
   const chartStatsOutput = document.getElementById("chart-stats");
   const copyStatsButton = document.getElementById("copy-stats");
   const copyPresetStatsButton = document.getElementById("copy-preset-stats");
@@ -1867,6 +1890,24 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function exportInspection() {
+    if (lastInspection === null) {
+      setState("Inspect the chart before exporting it.", "bad");
+      return;
+    }
+    const blob = new Blob([inspectionToJson(lastInspection)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const name = inspectionJsonFilename();
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Inspection exported as " + name + ".", "good");
+  }
+
   async function inspectCurrentChart() {
     try {
       const response = await fetch("/api/inspect", {
@@ -1875,6 +1916,7 @@ if (typeof document !== "undefined") {
         body: inspectRequestBody(chart.value),
       });
       const result = parseInspectResponse(await response.json());
+      lastInspection = result;
       inspectOutput.textContent = formatInspectForClipboard(result);
       setState(
         result.valid ? "Chart inspected." : "Chart has validation issues.",
@@ -2325,6 +2367,7 @@ if (typeof document !== "undefined") {
   let statsRequest = 0;
   let issuesRequest = 0;
   let lastIssues = [];
+  let lastInspection = null;
 
   async function renderStats() {
     const request = ++statsRequest;
@@ -2957,6 +3000,7 @@ if (typeof document !== "undefined") {
   canonicalizeButton.addEventListener("click", canonicalizeChart);
   copyFingerprintButton.addEventListener("click", copyChartFingerprint);
   inspectButton.addEventListener("click", inspectCurrentChart);
+  exportInspectionButton.addEventListener("click", exportInspection);
   copyPresetStatsButton.addEventListener("click", copyPresetStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);

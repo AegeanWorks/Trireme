@@ -97,6 +97,8 @@ const {
   inspectRequestBody,
   parseInspectResponse,
   formatInspectForClipboard,
+  inspectionToJson,
+  inspectionJsonFilename,
   formatFingerprintForClipboard,
   compareRequestBody,
   parseCompareResponse,
@@ -145,7 +147,7 @@ test("the page declares every control the script binds", () => {
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-stats", "copy-stats", "chart-issues", "copy-issues",
     "copy-preset-stats", "canonicalize", "copy-fingerprint",
-    "inspect-chart", "inspect-output", "from", "to",
+    "inspect-chart", "export-inspection", "inspect-output", "from", "to",
     "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
@@ -199,6 +201,28 @@ test("issues API helpers accept only structured line-numbered problems", () => {
   assert.throws(() => parseIssuesResponse(null), /Could not validate/);
   assert.throws(() => parseIssuesResponse({ ok: false, error: "bad request" }), /bad request/);
   assert.throws(() => parseIssuesResponse({ ok: true }), /Could not validate/);
+});
+
+test("inspection export is versioned and preserves the document", () => {
+  const inspect = parseInspectResponse({
+    ok: true,
+    valid: true,
+    fingerprint: "abc123",
+    width: 4,
+    height: 3,
+    cells: 12,
+    land: 1,
+    currents: 2,
+    wind: [1, 0],
+  });
+  const doc = JSON.parse(inspectionToJson(inspect));
+  assert.equal(doc.schema, "trireme.inspection/1");
+  assert.equal(doc.generatedBy, "trireme-web");
+  assert.deepEqual(doc.inspection, inspect);
+  assert.equal(inspectionJsonFilename(), "trireme-inspection.json");
+  assert.equal(inspectionToJson(inspect), inspectionToJson(inspect));
+  assert.throws(() => inspectionToJson(null), /No inspection/);
+  assert.match(formatHelpText(), /Export inspection/);
 });
 
 test("inspect helpers parse and format Rust chart details", () => {
@@ -1415,6 +1439,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("inspect-chart"\)/);
   assert.match(source, /fetch\("\/api\/inspect"/);
   assert.match(source, /formatInspectForClipboard\(result\)/);
+  assert.match(source, /getElementById\("export-inspection"\)/);
+  assert.match(source, /inspectionToJson\(lastInspection\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
