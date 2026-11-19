@@ -4,6 +4,7 @@ const HELP_SECTIONS = {
   commands: [
     ["chart <file> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]", "Describe, calm, count, validate, sort or identify a chart"],
     ["compare <file> --from X,Y --to X,Y [--json]", "Compare wind with the calm baseline"],
+    ["diff <left> <right> [--json]", "Show numbered chart line differences"],
     ["route <file> --from X,Y --to X,Y [--ascii] [--json]", "Plan the fastest route"],
     ["serve [--port N] [--project DIR]", "Serve this browser UI on 127.0.0.1"],
     ["help | --version", "Show CLI help or version"],

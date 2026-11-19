@@ -107,6 +107,25 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn diff_compares_two_chart_files_in_text_and_json() {
+    let scratch = Scratch::new();
+    let left = scratch.chart("grid 3 1\nwind 0 0\n");
+    let right = scratch.chart("grid 3 1\nwind 1 0\nland 2 0\n");
+    let text = ok_text(&run(&["diff", &left, &right]));
+    assert!(text.contains("TRIREME CHART DIFF"));
+    assert!(text.contains("3 - wind 0 0"));
+    assert!(text.contains("3 + wind 1 0"));
+    let json = ok_text(&run(&["diff", &left, &right, "--json"]));
+    assert!(json.contains("\"ok\":true"));
+    assert!(json.contains("\"line\":3"));
+    assert!(json.contains("\"kind\":\"changed\""));
+    let same = ok_text(&run(&["diff", &left, &left]));
+    assert!(same.contains("No differences."));
+    let bad = run(&["diff", &left]);
+    assert_eq!(bad.status.code(), Some(2));
+}
+
+#[test]
 fn chart_fingerprint_is_stable_across_comment_and_order_changes() {
     let scratch = Scratch::new();
     let chart = scratch.chart("grid 3 3\nwind 1 0\nland 2 2\n");

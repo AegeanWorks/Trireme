@@ -16,6 +16,7 @@ trireme — offline sailing route planner for small sea charts
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
   trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]
+  trireme diff <left> <right> [--json]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -50,6 +51,7 @@ pub fn run(args: &[String]) -> i32 {
         Some("route") => cmd_route(&args[1..]),
         Some("chart") => cmd_chart(&args[1..]),
         Some("compare") => cmd_compare(&args[1..]),
+        Some("diff") => cmd_diff(&args[1..]),
         Some("serve") => cmd_serve(&args[1..]),
         Some(other) => fail(
             &format!("unknown command '{other}'"),
@@ -394,6 +396,67 @@ fn cmd_chart(args: &[&str]) -> i32 {
     println!("wind ({},{})", sea.wind.dx, sea.wind.dy);
     println!("land {}", sea.land.len());
     println!("currents {}", sea.currents.len());
+    0
+}
+
+fn cmd_diff(args: &[&str]) -> i32 {
+    let json_output = args.iter().any(|arg| *arg == "--json");
+    let paths: Vec<&str> = args
+        .iter()
+        .copied()
+        .filter(|arg| *arg != "--json")
+        .collect();
+    if paths.len() != 2 || paths[0].starts_with('-') || paths[1].starts_with('-') {
+        return fail(
+            "diff needs two chart files",
+            "A comparison has a left and a right chart.",
+            "Use: trireme diff <left> <right> [--json]",
+        );
+    }
+    let read = |path: &str| match fs::read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(err) => Err(format!("cannot read chart '{path}': {err}")),
+    };
+    let left = match read(paths[0]) {
+        Ok(text) => text,
+        Err(err) => return fail(&err, "Both charts must be readable.", "Check the paths and retry."),
+    };
+    let right = match read(paths[1]) {
+        Ok(text) => text,
+        Err(err) => return fail(&err, "Both charts must be readable.", "Check the paths and retry."),
+    };
+    let rows = chart::diff(&left, &right);
+    if json_output {
+        let items: Vec<String> = rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "{{\"line\":{},\"kind\":{},\"left\":{},\"right\":{}}}",
+                    row.line,
+                    json::quote(row.kind),
+                    json::quote(&row.left),
+                    json::quote(&row.right)
+                )
+            })
+            .collect();
+        println!("{{\"ok\":true,\"rows\":[{}]}}", items.join(","));
+        return 0;
+    }
+    println!("TRIREME CHART DIFF");
+    if rows.is_empty() {
+        println!("No differences.");
+    } else {
+        for row in &rows {
+            match row.kind {
+                "changed" => {
+                    println!("{} - {}", row.line, row.left);
+                    println!("{} + {}", row.line, row.right);
+                }
+                "added" => println!("{} + {}", row.line, row.right),
+                _ => println!("{} - {}", row.line, row.left),
+            }
+        }
+    }
     0
 }
 
