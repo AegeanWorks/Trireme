@@ -15,17 +15,31 @@
   "assets": {
     "logo": {
       "path": "assets/logo.svg",
-      "status": "pending_review",
+      "status": "approved",
       "commit": "",
       "generated_at": "2026-11-19T08:30:17",
-      "review": null
+      "review": {
+        "status": "approved",
+        "reviewer": "agent:opencode",
+        "method": "structural",
+        "notes": "Valid SVG 512x512 with title/desc, AegeanWorks palette and TR wordmark; matches project identity.",
+        "score": 90,
+        "reviewed_at": "2026-11-19T21:36:19"
+      }
     },
     "social_preview": {
       "path": "assets/social-preview.svg",
-      "status": "pending_review",
+      "status": "approved",
       "commit": "",
       "generated_at": "2026-11-19T08:30:17",
-      "review": null
+      "review": {
+        "status": "approved",
+        "reviewer": "agent:opencode",
+        "method": "structural",
+        "notes": "Valid SVG 1280x640 with title/desc; copy describes the sailing route planner and cites the correct public repo URL.",
+        "score": 90,
+        "reviewed_at": "2026-11-19T21:36:19"
+      }
     }
   },
   "screenshots": []
