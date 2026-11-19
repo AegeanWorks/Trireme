@@ -101,6 +101,7 @@ fn json_output_is_machine_readable_for_charts_routes_and_failures() {
     assert!(routed.contains("\"ok\":true"));
     assert!(routed.contains("\"from\":[0,0]"));
     assert!(routed.contains("\"steps\""));
+    assert!(routed.contains("\"step_times\""));
     assert!(routed.contains("\"ascii\""));
 
     let blocked = scratch.chart("grid 3 3\nwind 0 0\nland 1 0\nland 1 1\nland 1 2\n");

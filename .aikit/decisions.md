@@ -39,3 +39,10 @@ contract, a dependency, a data format or the architecture; IDs are consecutive a
 - **Context**: A comparison view needs an unambiguous baseline for the same grid and endpoints.
 - **Decision**: Derive the calm chart in the client by replacing wind with 0 0 and every local current with 0 0, keeping land and grid unchanged.
 - **Consequences**: The comparison isolates weather from geography and needs no server change; the cost is one more client helper with its own tests.
+
+### ADR-005: Route documents carry a per-step time breakdown
+- **Date**: 2026-11-19
+- **Status**: Accepted
+- **Context**: The route total hid which headings were expensive, and CSV export only had headings.
+- **Decision**: Add step_times to the shared route JSON, populate it from Dijkstra's chosen moves, and render it in the browser panel and the CSV time_units column.
+- **Consequences**: Consumers can see where time is spent and the times sum to the total; the cost is one more array to keep aligned with steps and covered by tests.

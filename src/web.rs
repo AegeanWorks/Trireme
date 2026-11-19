@@ -151,12 +151,18 @@ pub fn route_json(from: (u32, u32), to: (u32, u32), route: &Route, map: &str) ->
         .map(|(x, y)| format!("[{x},{y}]"))
         .collect();
     format!(
-        "{{\"ok\":true,\"from\":[{},{}],\"to\":[{},{}],\"steps\":[{}],\"waypoints\":[{}],\"time\":{},\"explored\":{},\"ascii\":{}}}",
+        "{{\"ok\":true,\"from\":[{},{}],\"to\":[{},{}],\"steps\":[{}],\"step_times\":[{}],\"waypoints\":[{}],\"time\":{},\"explored\":{},\"ascii\":{}}}",
         from.0,
         from.1,
         to.0,
         to.1,
         steps.join(","),
+        route
+            .step_times
+            .iter()
+            .map(|time| time.to_string())
+            .collect::<Vec<String>>()
+            .join(","),
         points.join(","),
         route.time,
         route.explored,
@@ -273,6 +279,13 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn route_document_exposes_one_time_per_step() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 5 1\\nwind 0 0\\n\",\"from\":[0,0],\"to\":[4,0]}";
+        let out = api_route(body);
+        assert!(out.contains("\"step_times\":[100,100,100,100]"), "{out}");
     }
 
     #[test]

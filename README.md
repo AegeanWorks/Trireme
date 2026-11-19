@@ -23,7 +23,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
   ```bash
   cargo run -- serve --project .     # http://127.0.0.1:7878/
   ```
-  Pick a preset, edit the chart and endpoints, press **Plan route**, and read the headings, waypoints and ASCII map on the right. **Compare with calm** runs the same query twice — once as written, once with wind and currents zeroed — and reports the time difference; see ADR-004. **Import file** reads a `.txt` chart from disk (with header/grid/wind validation); **Download chart** writes the current chart back as text. **Save chart** / **Load saved** keep a chart in this browser's local storage; **Export route (JSON)** downloads the raw answer, while **Export route (CSV)** writes `step,x,y,heading` rows for the last planned route. **Route history** keeps the last 10 plans — chart text and endpoints included — in this browser's local storage; **Restore** reloads an entry into the editor and **Clear** empties it. Nothing is sent anywhere. The page calls `/api/route`, which shares its route document with `route --json`.
+  Pick a preset, edit the chart and endpoints, press **Plan route**, and read the headings, waypoints and ASCII map on the right. **Compare with calm** runs the same query twice — once as written, once with wind and currents zeroed — and reports the time difference; see ADR-004. **Import file** reads a `.txt` chart from disk (with header/grid/wind validation); **Download chart** writes the current chart back as text. **Save chart** / **Load saved** keep a chart in this browser's local storage; **Step times** shows what each heading cost, and the result panel's headings, waypoints and map update on every plan. **Export route (JSON)** downloads the raw answer, while **Export route (CSV)** writes `step,x,y,heading,time_units` rows for the last planned route. **Route history** keeps the last 10 plans — chart text and endpoints included — in this browser's local storage; **Restore** reloads an entry into the editor and **Clear** empties it. Nothing is sent anywhere. The page calls `/api/route`, which shares its route document with `route --json`.
 - **Client logic proof** (Node 18+): `node --test web/app.test.js`
 
 ### 🛠️ Commands
@@ -31,7 +31,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
 | Command | What it does |
 |---|---|
 | `trireme chart <chart> [--json]` | Describe the grid, wind, land and current count. |
-| `trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]` | Print the headings, waypoints, time in integer units and cells explored; `--json` emits the shared machine-readable route document. |
+| `trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]` | Print the headings, waypoints, total time, per-step times and cells explored; `--json` emits the shared route document including `step_times` (ADR-005). |
 | `trireme serve [--port N] [--project DIR]` | Serve the browser UI from `DIR/web` on loopback (default `7878`). |
 | `trireme help` / `trireme --version` | Show usage or the version. |
 

@@ -26,6 +26,8 @@ pub const MOVES: [(&str, i32, i32, u64); 8] = [
 pub struct Route {
     pub waypoints: Vec<(u32, u32)>,
     pub steps: Vec<&'static str>,
+    /// Integer time of each move, in the same order as `steps`.
+    pub step_times: Vec<u64>,
     pub time: u64,
     pub explored: u32,
 }
@@ -51,13 +53,14 @@ pub fn find_route(
         return Ok(Some(Route {
             waypoints: vec![from],
             steps: Vec::new(),
+            step_times: Vec::new(),
             time: 0,
             explored: 0,
         }));
     }
 
     let mut best: HashMap<(u32, u32), u64> = HashMap::new();
-    let mut previous: HashMap<(u32, u32), ((u32, u32), &'static str)> = HashMap::new();
+    let mut previous: HashMap<(u32, u32), ((u32, u32), &'static str, u64)> = HashMap::new();
     let mut queue = BinaryHeap::new();
     best.insert(from, 0);
     queue.push(Reverse((0u64, from.0, from.1)));
@@ -71,18 +74,22 @@ pub fn find_route(
         if here == to {
             let mut waypoints = vec![to];
             let mut steps = Vec::new();
+            let mut step_times = Vec::new();
             let mut cursor = to;
             while cursor != from {
-                let (before, heading) = previous[&cursor];
+                let (before, heading, used) = previous[&cursor];
                 steps.push(heading);
+                step_times.push(used);
                 waypoints.push(before);
                 cursor = before;
             }
             waypoints.reverse();
             steps.reverse();
+            step_times.reverse();
             return Ok(Some(Route {
                 waypoints,
                 steps,
+                step_times,
                 time,
                 explored,
             }));
@@ -104,7 +111,7 @@ pub fn find_route(
             let candidate = time + step_time;
             if candidate < best.get(&next).copied().unwrap_or(u64::MAX) {
                 best.insert(next, candidate);
-                previous.insert(next, (here, heading));
+                previous.insert(next, (here, heading, step_time));
                 queue.push(Reverse((candidate, next.0, next.1)));
             }
         }
@@ -173,6 +180,17 @@ mod tests {
         assert_eq!(route.steps, vec!["E", "E", "E", "E"]);
         assert_eq!(route.waypoints.len(), 5);
         assert_eq!(route.time, 4 * 10 * 100 / 10);
+        assert_eq!(route.step_times, vec![100, 100, 100, 100]);
+        assert_eq!(route.step_times.iter().sum::<u64>(), route.time);
+    }
+
+    #[test]
+    fn per_step_times_follow_wind_and_sum_to_total() {
+        let sea = chart("grid 4 1\nwind 1 0\n");
+        let route = find_route(&sea, (0, 0), (3, 0)).unwrap().unwrap();
+        assert_eq!(route.step_times.len(), route.steps.len());
+        assert_eq!(route.step_times.iter().sum::<u64>(), route.time);
+        assert!(route.step_times.iter().all(|time| *time < 100));
     }
 
     #[test]

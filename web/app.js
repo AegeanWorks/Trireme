@@ -101,6 +101,21 @@ function compareSummary(current, calm) {
   return "Wind and current cost " + -delta + " units (" + percent + "% slower).";
 }
 
+function formatStepTimes(route) {
+  if (!route || !Array.isArray(route.steps) || !Array.isArray(route.step_times)) {
+    return "\u2014";
+  }
+  if (route.steps.length === 0) {
+    return "(already there)";
+  }
+  return route.steps
+    .map((step, index) => {
+      const used = route.step_times[index];
+      return step + " " + (used === undefined ? "?" : used) + " units";
+    })
+    .join(" \u00b7 ");
+}
+
 function csvCell(value) {
   const text = String(value);
   return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
@@ -110,13 +125,15 @@ function routeToCsv(route) {
   if (!route || !Array.isArray(route.waypoints) || !Array.isArray(route.steps)) {
     throw new Error("No route to export as CSV.");
   }
-  const lines = ["step,x,y,heading"];
+  const times = Array.isArray(route.step_times) ? route.step_times : [];
+  const lines = ["step,x,y,heading,time_units"];
   route.waypoints.forEach((point, index) => {
     if (!Array.isArray(point) || point.length !== 2) {
       throw new Error("Route waypoints must be [x,y] pairs.");
     }
     const heading = index === 0 ? "start" : route.steps[index - 1] || "";
-    lines.push([index, point[0], point[1], heading].map(csvCell).join(","));
+    const spent = index === 0 ? 0 : times[index - 1] === undefined ? "" : times[index - 1];
+    lines.push([index, point[0], point[1], heading, spent].map(csvCell).join(","));
   });
   return lines.join("\n") + "\n";
 }
@@ -223,6 +240,7 @@ if (typeof module !== "undefined" && module.exports) {
     csvCell,
     routeToCsv,
     routeCsvFilename,
+    formatStepTimes,
   };
 }
 
@@ -237,6 +255,7 @@ if (typeof document !== "undefined") {
   const stepsCount = document.getElementById("steps-count");
   const explored = document.getElementById("explored");
   const headings = document.getElementById("headings");
+  const stepTimes = document.getElementById("step-times");
   const waypoints = document.getElementById("waypoints");
   const map = document.getElementById("map");
   const comparePanel = document.getElementById("compare-panel");
@@ -311,6 +330,7 @@ if (typeof document !== "undefined") {
     stepsCount.textContent = String(route.steps.length);
     explored.textContent = String(route.explored) + " cells";
     headings.textContent = route.steps.length ? route.steps.join(" ") : "(already there)";
+    stepTimes.textContent = formatStepTimes(route);
     waypoints.textContent = route.waypoints
       .map((p) => "(" + p[0] + "," + p[1] + ")")
       .join(" -> ");
@@ -322,6 +342,7 @@ if (typeof document !== "undefined") {
     stepsCount.textContent = "\u2014";
     explored.textContent = "\u2014";
     headings.textContent = "\u2014";
+    stepTimes.textContent = "\u2014";
     waypoints.textContent = "\u2014";
     map.textContent = "\u2014";
     comparePanel.hidden = true;

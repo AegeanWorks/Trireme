@@ -16,6 +16,7 @@ const {
   csvCell,
   routeToCsv,
   routeCsvFilename,
+  formatStepTimes,
   HISTORY_KEY,
   HISTORY_LIMIT,
   historyEntry,
@@ -49,7 +50,8 @@ test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
     "chart", "from", "to", "preset", "file", "plan", "compare", "save",
-    "load", "import", "download", "export", "export-csv", "map", "compare-panel",
+    "load", "import", "download", "export", "export-csv", "map", "step-times",
+    "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "history-title", "clear-history", "history-list",
   ]) {
@@ -127,18 +129,29 @@ test("CSV export turns waypoints into one row per step", () => {
   const route = {
     waypoints: [[0, 2], [1, 2], [2, 1]],
     steps: ["E", "NE"],
-    time: 240,
+    step_times: [83, 117],
+    time: 200,
   };
   assert.equal(
     routeToCsv(route),
-    "step,x,y,heading\n0,0,2,start\n1,1,2,E\n2,2,1,NE\n"
+    "step,x,y,heading,time_units\n0,0,2,start,0\n1,1,2,E,83\n2,2,1,NE,117\n"
   );
   assert.equal(
-    routeToCsv({ waypoints: [[3, 4]], steps: [] }),
-    "step,x,y,heading\n0,3,4,start\n"
+    routeToCsv({ waypoints: [[3, 4]], steps: [], step_times: [] }),
+    "step,x,y,heading,time_units\n0,3,4,start,0\n"
   );
   assert.throws(() => routeToCsv(null), /No route/);
   assert.throws(() => routeToCsv({ waypoints: [[1]], steps: [] }), /\[x,y\]/);
+});
+
+test("step times render each heading with its own cost", () => {
+  assert.equal(
+    formatStepTimes({ steps: ["E", "NE"], step_times: [83, 117] }),
+    "E 83 units \u00b7 NE 117 units"
+  );
+  assert.equal(formatStepTimes({ steps: [], step_times: [] }), "(already there)");
+  assert.equal(formatStepTimes({ steps: ["E"] }), "\u2014");
+  assert.equal(formatStepTimes(null), "\u2014");
 });
 
 test("CSV cells quote commas and quotes, and filenames end in .csv", () => {
@@ -248,6 +261,7 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /restore\.dataset\.index = String\(index\)/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
+  assert.match(source, /stepTimes\.textContent = formatStepTimes\(route\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });
