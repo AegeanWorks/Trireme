@@ -114,7 +114,7 @@ fn import_inspection_validates_and_canonicalizes_documents() {
     std::fs::write(&source, body).unwrap();
     let source_s = source.to_str().unwrap();
     let printed = ok_text(&run(&["import-inspection", source_s]));
-    assert!(printed.contains("\"schema\": \"trireme.inspection/1\"") || printed.contains("\"schema\":\"trireme.inspection/1\""));
+    assert!(printed.contains("\"schema\":\"trireme.inspection/1\""));
     let out = scratch.0.join("canonical.json");
     let out_s = out.to_str().unwrap();
     ok_text(&run(&["import-inspection", source_s, "--out", out_s]));
