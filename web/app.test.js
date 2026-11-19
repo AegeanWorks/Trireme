@@ -1325,7 +1325,14 @@ test("comparison JSON is versioned and mirrors the two scenarios", () => {
   assert.deepEqual(doc.wind.step_times, [83, 116]);
   assert.equal(doc.calm.time, 780);
   assert.equal(comparisonJsonFilename(), "trireme-comparison.json");
-  assert.equal(comparisonToJson(comparison), comparisonToJson(comparison));
+  assert.deepEqual(doc, {
+    schema: "trireme.comparison/1",
+    from: [0, 2],
+    to: [7, 0],
+    saved: 133,
+    wind: { time: 647, steps: 2, step_times: [83, 116], explored: 26 },
+    calm: { time: 780, steps: 1, step_times: [156], explored: 30 },
+  });
   assert.throws(() => comparisonToJson(null), /No comparison/);
   assert.match(formatHelpText(), /Export comparison/);
 });
