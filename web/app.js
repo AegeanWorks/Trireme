@@ -459,6 +459,29 @@ function formatImportSummary(summary) {
   ].join("\n");
 }
 
+function filterHistory(entries, query) {
+  const source = Array.isArray(entries) ? entries : [];
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) {
+    return source.slice();
+  }
+  return source.filter((entry) => {
+    const haystack = [
+      formatHistoryEntry(entry),
+      typeof entry.heading === "string" ? entry.heading : "",
+      typeof entry.chart === "string" ? entry.chart : "",
+      JSON.stringify([entry.from, entry.to, entry.steps]),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(needle);
+  });
+}
+
+function historyFilterSummary(shown, total) {
+  return "Showing " + shown + " of " + total + " entries";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -474,6 +497,8 @@ if (typeof module !== "undefined" && module.exports) {
     mergeHistory,
     historyImportSummary,
     formatImportSummary,
+    filterHistory,
+    historyFilterSummary,
     PRESETS,
     point,
     applyPreset,
@@ -514,6 +539,8 @@ if (typeof document !== "undefined") {
   const compareCalm = document.getElementById("compare-calm");
   const compareDelta = document.getElementById("compare-delta");
   const historyList = document.getElementById("history-list");
+  const historyFilter = document.getElementById("history-filter");
+  const historyFilterStatus = document.getElementById("history-filter-status");
   const clearHistory = document.getElementById("clear-history");
   const historyFile = document.getElementById("history-file");
   const importPreview = document.getElementById("import-preview");
@@ -539,6 +566,8 @@ if (typeof document !== "undefined") {
 
   function renderHistory() {
     const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    const visible = filterHistory(entries, historyFilter.value);
+    historyFilterStatus.textContent = historyFilterSummary(visible.length, entries.length);
     historyList.replaceChildren();
     if (entries.length === 0) {
       const empty = document.createElement("li");
@@ -546,7 +575,13 @@ if (typeof document !== "undefined") {
       historyList.appendChild(empty);
       return;
     }
-    entries.forEach((entry, index) => {
+    if (visible.length === 0) {
+      const none = document.createElement("li");
+      none.textContent = "No history entries match this filter.";
+      historyList.appendChild(none);
+      return;
+    }
+    visible.forEach((entry) => {
       const row = document.createElement("li");
       const label = document.createElement("span");
       label.className = "history-text";
@@ -555,7 +590,7 @@ if (typeof document !== "undefined") {
       restore.type = "button";
       restore.className = "restore secondary";
       restore.textContent = "Restore";
-      restore.dataset.index = String(index);
+      restore.dataset.index = String(entries.indexOf(entry));
       row.appendChild(label);
       row.appendChild(restore);
       historyList.appendChild(row);
@@ -919,6 +954,7 @@ if (typeof document !== "undefined") {
     }
   });
   renderHistory();
+  historyFilter.addEventListener("input", renderHistory);
   renderIssues();
   chart.addEventListener("input", renderIssues);
   preset.addEventListener("change", () => {

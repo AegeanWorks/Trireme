@@ -35,6 +35,8 @@ const {
   comparisonCsvFilename,
   historyImportSummary,
   formatImportSummary,
+  filterHistory,
+  historyFilterSummary,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -66,7 +68,8 @@ test("the page declares every control the script binds", () => {
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
     "history-title", "clear-history", "export-history", "import-history",
-    "history-file", "history-list", "import-preview", "import-preview-text",
+    "history-file", "history-list", "history-filter", "history-filter-status",
+    "import-preview", "import-preview-text",
     "apply-import", "cancel-import",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
@@ -418,6 +421,28 @@ test("import preview counts new, duplicate and kept entries", () => {
   assert.throws(() => formatImportSummary(null), /No import/);
 });
 
+test("history search matches endpoints, notes and chart text", () => {
+  const make = (to, note, chart) =>
+    historyEntry(
+      { time: 400, steps: ["E"] },
+      { chart, from: [0, 0], to },
+      to[0] * 1000,
+      note
+    );
+  const entries = [
+    make([3, 0], "calm water compared", "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n"),
+    make([5, 2], "fast run", "TRIREME-CHART v1\ngrid 6 3\nwind 1 0\nland 2 2\n"),
+  ];
+  assert.equal(filterHistory(entries, "").length, 2);
+  assert.deepEqual(filterHistory(entries, "5,2").map((e) => e.to), [[5, 2]]);
+  assert.equal(filterHistory(entries, "FAST RUN").length, 1);
+  assert.equal(filterHistory(entries, "land 2 2").length, 1);
+  assert.equal(filterHistory(entries, "400 units").length, 2);
+  assert.equal(filterHistory(entries, "nothing matches").length, 0);
+  assert.equal(filterHistory(null, "x").length, 0);
+  assert.equal(historyFilterSummary(1, 2), "Showing 1 of 2 entries");
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -430,7 +455,7 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /const clearHistory = document\.getElementById\("clear-history"\)/);
   assert.match(source, /clearHistory\.addEventListener\("click"/);
   assert.match(source, /localStorage\.setItem\(HISTORY_KEY/);
-  assert.match(source, /restore\.dataset\.index = String\(index\)/);
+  assert.match(source, /const visible = filterHistory\(entries, historyFilter\.value\)/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
   assert.match(source, /stepTimes\.textContent = formatStepTimes\(route\)/);
@@ -452,6 +477,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /applyImport\.addEventListener\("click"/);
   assert.match(source, /cancelImport\.addEventListener\("click"/);
   assert.match(source, /historyImportSummary\(incoming, current\)/);
+  assert.match(source, /historyFilter\.addEventListener\("input", renderHistory\)/);
+  assert.match(source, /restore\.dataset\.index = String\(entries\.indexOf\(entry\)\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });
