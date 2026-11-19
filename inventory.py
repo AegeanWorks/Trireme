@@ -29,6 +29,7 @@ if __name__ == "__main__":
     print('output|diff-output|web/index.html#diff-output')
     print('textarea|chart|web/index.html#chart')
     print('output|chart-stats|web/index.html#chart-stats')
+    print('button|copy-stats|web/index.html#copy-stats')
     print('output|chart-issues|web/index.html#chart-issues')
     print('input|from|web/index.html#from')
     print('input|to|web/index.html#to')

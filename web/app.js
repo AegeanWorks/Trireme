@@ -22,6 +22,7 @@ const HELP_SECTIONS = {
     ["Clear editor", "Reset chart and endpoints to the default preset"],
     ["Swap endpoints", "Exchange the from and to coordinates"],
     ["Copy chart", "Copy the chart text with its endpoints noted"],
+    ["Copy stats", "Copy grid, land, current and wind counts"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
@@ -1245,6 +1246,10 @@ function formatRouteAsMarkdown(route) {
   return lines.join("\n");
 }
 
+function formatChartStatsForClipboard(stats) {
+  return "Trireme chart stats\n" + formatChartStats(stats) + "\n";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1309,6 +1314,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatChartIssues,
     chartStats,
     formatChartStats,
+    formatChartStatsForClipboard,
     formatChartForClipboard,
     diffCharts,
     formatChartDiff,
@@ -1371,6 +1377,7 @@ if (typeof document !== "undefined") {
   const copyMarkdownButton = document.getElementById("copy-markdown");
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
+  const copyStatsButton = document.getElementById("copy-stats");
   const status = document.getElementById("status");
   const time = document.getElementById("time");
   const stepsCount = document.getElementById("steps-count");
@@ -1457,6 +1464,25 @@ if (typeof document !== "undefined") {
       setState("Chart copied to the clipboard.", "good");
     } catch (error) {
       setState(String(error.message), "bad");
+    }
+  }
+
+  async function copyChartStats() {
+    const text = formatChartStatsForClipboard(chartStats(chart.value));
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Chart statistics copied to the clipboard.", "good");
+    } catch (error) {
+      setState("Clipboard unavailable: " + error, "bad");
     }
   }
 
@@ -2285,6 +2311,7 @@ if (typeof document !== "undefined") {
   document.getElementById("clear-editor").addEventListener("click", clearEditor);
   swapEndpointsButton.addEventListener("click", swapEditorEndpoints);
   copyChartButton.addEventListener("click", copyCurrentChart);
+  copyStatsButton.addEventListener("click", copyChartStats);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);
   document.getElementById("import").addEventListener("click", importChart);

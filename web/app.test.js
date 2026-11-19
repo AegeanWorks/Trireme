@@ -78,6 +78,7 @@ const {
   historyCsvFilename,
   chartStats,
   formatChartStats,
+  formatChartStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
   formatChartDiff,
@@ -113,7 +114,8 @@ test("the page declares every control the script binds", () => {
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
-    "chart", "chart-stats", "chart-issues", "from", "to", "swap-endpoints", "copy-chart",
+    "chart", "chart-stats", "copy-stats", "chart-issues", "from", "to",
+    "swap-endpoints", "copy-chart",
     "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
     "presets-file", "export-presets", "import-presets", "delete-preset",
@@ -989,6 +991,18 @@ test("Markdown route report includes metrics, step costs and a fenced map", () =
   assert.match(formatHelpText(), /Copy Markdown/);
 });
 
+test("clipboard chart stats are labelled and reuse the panel format", () => {
+  const stats = chartStats("TRIREME-CHART v1\ngrid 8 4\nwind 1 0\nland 2 2\ncurrent 5 2 0 -1\n");
+  assert.equal(
+    formatChartStatsForClipboard(stats),
+    "Trireme chart stats\n" + formatChartStats(stats) + "\n"
+  );
+  assert.match(formatChartStatsForClipboard(stats), /8x4 grid \u00b7 32 cells/);
+  assert.match(formatChartStatsForClipboard(chartStats("")), /0x0 grid/);
+  assert.throws(() => formatChartStatsForClipboard(null), /No chart statistics/);
+  assert.match(formatHelpText(), /Copy stats/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1067,6 +1081,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-map"\)/);
   assert.match(source, /copyMapButton\.addEventListener\("click", copyRouteMap\)/);
   assert.match(source, /formatMapForClipboard\(lastRoute/);
+  assert.match(source, /getElementById\("copy-stats"\)/);
+  assert.match(source, /copyStatsButton\.addEventListener\("click", copyChartStats\)/);
+  assert.match(source, /formatChartStatsForClipboard\(chartStats\(chart\.value\)\)/);
   assert.match(source, /getElementById\("copy-markdown"\)/);
   assert.match(source, /copyMarkdownButton\.addEventListener\("click", copyRouteMarkdown\)/);
   assert.match(source, /formatRouteAsMarkdown\(lastRoute\)/);
