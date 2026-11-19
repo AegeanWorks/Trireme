@@ -38,5 +38,6 @@ if __name__ == "__main__":
     print('output|history-list|web/index.html#history-list')
     print('input|history-filter|web/index.html#history-filter')
     print('output|history-filter-status|web/index.html#history-filter-status')
+    print('select|history-sort|web/index.html#history-sort')
     print('button|restore|web/index.html#history-list button.restore')
     print('cli|help|--help')

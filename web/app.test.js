@@ -37,6 +37,7 @@ const {
   formatImportSummary,
   filterHistory,
   historyFilterSummary,
+  sortHistory,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -68,7 +69,8 @@ test("the page declares every control the script binds", () => {
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
     "history-title", "clear-history", "export-history", "import-history",
-    "history-file", "history-list", "history-filter", "history-filter-status",
+    "history-file", "history-list", "history-filter", "history-sort",
+    "history-filter-status",
     "import-preview", "import-preview-text",
     "apply-import", "cancel-import",
   ]) {
@@ -443,6 +445,22 @@ test("history search matches endpoints, notes and chart text", () => {
   assert.equal(historyFilterSummary(1, 2), "Showing 1 of 2 entries");
 });
 
+test("history sort orders by date or time without mutating input", () => {
+  const make = (at, time) =>
+    historyEntry({ time, steps: [] }, { chart: "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n", from: [0, 0], to: [1, 1] }, at);
+  const entries = [make(100, 600), make(300, 200), make(200, 400)];
+  const original = entries.slice();
+  assert.deepEqual(sortHistory(entries, "newest").map((e) => e.at), [300, 200, 100]);
+  assert.deepEqual(sortHistory(entries, "oldest").map((e) => e.at), [100, 200, 300]);
+  assert.deepEqual(sortHistory(entries, "fastest").map((e) => e.time), [200, 400, 600]);
+  assert.deepEqual(sortHistory(entries, "slowest").map((e) => e.time), [600, 400, 200]);
+  assert.deepEqual(entries, original);
+  assert.deepEqual(sortHistory(entries, "unknown"), sortHistory(entries, "newest"));
+  assert.deepEqual(sortHistory(null, "newest"), []);
+  const tied = [make(100, 100), make(100, 100)];
+  assert.equal(sortHistory(tied, "newest").length, 2);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -455,7 +473,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /const clearHistory = document\.getElementById\("clear-history"\)/);
   assert.match(source, /clearHistory\.addEventListener\("click"/);
   assert.match(source, /localStorage\.setItem\(HISTORY_KEY/);
-  assert.match(source, /const visible = filterHistory\(entries, historyFilter\.value\)/);
+  assert.match(source, /historySort\.addEventListener\("change", renderHistory\)/);
+  assert.match(source, /sortHistory\(/);
+  assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
   assert.match(source, /stepTimes\.textContent = formatStepTimes\(route\)/);

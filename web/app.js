@@ -482,6 +482,23 @@ function historyFilterSummary(shown, total) {
   return "Showing " + shown + " of " + total + " entries";
 }
 
+function sortHistory(entries, mode) {
+  const source = Array.isArray(entries) ? entries.slice() : [];
+  const key = (entry) => JSON.stringify([entry.at, entry.from, entry.to, entry.time]);
+  const byTime = (a, b) => (b.at || 0) - (a.at || 0) || key(a).localeCompare(key(b));
+  switch (mode) {
+    case "oldest":
+      return source.sort((a, b) => -byTime(a, b));
+    case "fastest":
+      return source.sort((a, b) => (a.time || 0) - (b.time || 0) || byTime(a, b));
+    case "slowest":
+      return source.sort((a, b) => (b.time || 0) - (a.time || 0) || byTime(a, b));
+    case "newest":
+    default:
+      return source.sort(byTime);
+  }
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -499,6 +516,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatImportSummary,
     filterHistory,
     historyFilterSummary,
+    sortHistory,
     PRESETS,
     point,
     applyPreset,
@@ -540,6 +558,7 @@ if (typeof document !== "undefined") {
   const compareDelta = document.getElementById("compare-delta");
   const historyList = document.getElementById("history-list");
   const historyFilter = document.getElementById("history-filter");
+  const historySort = document.getElementById("history-sort");
   const historyFilterStatus = document.getElementById("history-filter-status");
   const clearHistory = document.getElementById("clear-history");
   const historyFile = document.getElementById("history-file");
@@ -566,7 +585,10 @@ if (typeof document !== "undefined") {
 
   function renderHistory() {
     const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
-    const visible = filterHistory(entries, historyFilter.value);
+    const visible = sortHistory(
+      filterHistory(entries, historyFilter.value),
+      historySort.value
+    );
     historyFilterStatus.textContent = historyFilterSummary(visible.length, entries.length);
     historyList.replaceChildren();
     if (entries.length === 0) {
@@ -955,6 +977,7 @@ if (typeof document !== "undefined") {
   });
   renderHistory();
   historyFilter.addEventListener("input", renderHistory);
+  historySort.addEventListener("change", renderHistory);
   renderIssues();
   chart.addEventListener("input", renderIssues);
   preset.addEventListener("change", () => {

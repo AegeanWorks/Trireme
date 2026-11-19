@@ -121,6 +121,15 @@ current 6 1 -1 0</textarea>
         <span>Filter history</span>
         <input id="history-filter" type="search" spellcheck="false" placeholder="endpoint, time, note or chart text">
       </label>
+      <label class="field">
+        <span>Sort history</span>
+        <select id="history-sort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="fastest">Fastest first</option>
+          <option value="slowest">Slowest first</option>
+        </select>
+      </label>
       <p id="history-filter-status" class="hint">Showing 0 of 0 entries</p>
       <ol id="history-list" class="history-list"><li>No routes planned yet.</li></ol>
       <section id="import-preview" class="import-preview" hidden aria-labelledby="import-preview-title">
