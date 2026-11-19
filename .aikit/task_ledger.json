@@ -1,5 +1,65 @@
 {
   "version": 1,
   "active_task": null,
-  "checkpoints": []
+  "checkpoints": [
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge run",
+      "phase_num": 3,
+      "description": "run started (start=3, step=3, stop=None)",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795104781.9712186,
+      "timestamp_str": "2026-11-19 19:13:01",
+      "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 1",
+      "phase_num": 3,
+      "description": "Reforge stage 1: window 3, 3 commit(s), 10 file(s) reviewed (unreviewed), 0 finding(s), 0 repaired, empty \u2014 nothing to commit",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795104832.2110715,
+      "timestamp_str": "2026-11-19 19:13:52",
+      "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 1",
+      "phase_num": 3,
+      "description": "Reforge stage 1: stage 1 host review reviewed; run active; coverage 37/37",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795106328.853732,
+      "timestamp_str": "2026-11-19 19:38:48",
+      "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 1",
+      "phase_num": 3,
+      "description": "Reforge stage 1: stage 1 host review reviewed; run active; coverage 37/37",
+      "files_affected": [],
+      "status": "in_progress",
+      "timestamp": 1795106623.485174,
+      "timestamp_str": "2026-11-19 19:43:43",
+      "agent": "opencode"
+    },
+    {
+      "task_id": "reforge:run-1",
+      "phase": "reforge stage 1",
+      "phase_num": 3,
+      "description": "Reforge stage 1: window 3, 3 commit(s), 10 file(s) reviewed (reviewed), 4 finding(s), 1 repaired, commit 9cdd5df verified-but-unpushed (improvement=3, review=1)",
+      "files_affected": [
+        "src/web.rs",
+        "tests/cli.rs",
+        "README.md"
+      ],
+      "status": "in_progress",
+      "timestamp": 1795106623.504384,
+      "timestamp_str": "2026-11-19 19:43:43",
+      "agent": "opencode"
+    }
+  ]
 }
