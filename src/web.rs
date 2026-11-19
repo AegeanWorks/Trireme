@@ -76,6 +76,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/compare") => api_compare(&request.body),
         ("POST", "/api/fingerprint") => api_fingerprint(&request.body),
         ("POST", "/api/chart-diff") => api_chart_diff(&request.body),
+        ("POST", "/api/diff-summary") => api_diff_summary(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -212,6 +213,37 @@ pub fn api_calm(body: &str) -> String {
         ),
         Err(err) => response(400, "application/json", &error_json(&err)),
     }
+}
+
+/// Returns counts-only summary of two charts from the Rust core.
+pub fn api_diff_summary(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let field = |name: &str| {
+        parsed
+            .get(name)
+            .ok_or_else(|| format!("missing field '{name}'"))
+            .and_then(|value| json::string_value(value))
+    };
+    let left = match field("left") {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let right = match field("right") {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let summary = chart::diff_summary(&chart::diff(&left, &right));
+    response(
+        200,
+        "application/json",
+        &format!(
+            "{{\"ok\":true,\"changed\":{},\"added\":{},\"removed\":{},\"total\":{}}}",
+            summary.changed, summary.added, summary.removed, summary.total
+        ),
+    )
 }
 
 /// Returns a line-by-line diff of two charts from the Rust core.
@@ -547,6 +579,17 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn diff_summary_endpoint_returns_counts() {
+        let body = "{\"left\":\"a\\nb\",\"right\":\"a\\nc\\nd\"}";
+        let out = api_diff_summary(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"changed\":1"));
+        assert!(out.contains("\"added\":1"));
+        assert!(out.contains("\"total\":2"));
+        assert!(api_diff_summary("{}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]

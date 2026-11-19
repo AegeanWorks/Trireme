@@ -25,6 +25,7 @@ if __name__ == "__main__":
     print('select|diff-right|web/index.html#diff-right')
     print('button|compare-presets|web/index.html#compare-presets')
     print('button|copy-diff|web/index.html#copy-diff')
+    print('button|copy-diff-summary|web/index.html#copy-diff-summary')
     print('button|diff-current|web/index.html#diff-current')
     print('button|validate-presets|web/index.html#validate-presets')
     print('output|preset-validation|web/index.html#preset-validation')

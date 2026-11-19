@@ -104,6 +104,9 @@ const {
   chartDiffRequestBody,
   parseChartDiffResponse,
   chartDiffFromRows,
+  diffSummaryRequestBody,
+  parseDiffSummaryResponse,
+  formatDiffSummaryForClipboard,
   formatDiffForClipboard,
   diffAgainstPreset,
   validatePresetLibrary,
@@ -144,7 +147,8 @@ test("the page declares every control the script binds", () => {
     "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
-    "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-current",
+    "diff-left", "diff-right", "compare-presets", "copy-diff",
+    "copy-diff-summary", "diff-current",
     "validate-presets", "preset-validation", "diff-output",
     "file", "plan", "clear-editor", "compare", "save", "copy-command", "copy-map",
     "copy-markdown",
@@ -907,6 +911,30 @@ test("chart statistics summarize grid, land, currents and wind", () => {
   assert.throws(() => formatChartStats(null), /No chart statistics/);
 });
 
+test("diff summary API helpers format Rust counts strictly", () => {
+  assert.equal(
+    diffSummaryRequestBody("a", "b"),
+    JSON.stringify({ left: "a", right: "b" })
+  );
+  const summary = parseDiffSummaryResponse({
+    ok: true,
+    changed: 2,
+    added: 1,
+    removed: 0,
+    total: 3,
+  });
+  assert.deepEqual(summary, { changed: 2, added: 1, removed: 0, total: 3 });
+  assert.equal(
+    formatDiffSummaryForClipboard(summary),
+    "Trireme chart diff summary\nchanged=2 added=1 removed=0 total=3\n"
+  );
+  assert.throws(() => parseDiffSummaryResponse(null), /Could not summarize/);
+  assert.throws(() => parseDiffSummaryResponse({ ok: false, error: "bad" }), /bad/);
+  assert.throws(() => parseDiffSummaryResponse({ ok: true }), /Could not summarize/);
+  assert.throws(() => formatDiffSummaryForClipboard(null), /No diff summary/);
+  assert.match(formatHelpText(), /Copy diff summary/);
+});
+
 test("chart diff API helpers turn Rust rows into the panel format", () => {
   assert.equal(
     chartDiffRequestBody("a\nb", "a\nc"),
@@ -1278,6 +1306,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /async function fetchChartDiff/);
   assert.match(source, /await fetchChartDiff\(chart\.value, preset\.chart\)/);
   assert.match(source, /getElementById\("copy-diff"\)/);
+  assert.match(source, /getElementById\("copy-diff-summary"\)/);
+  assert.match(source, /fetch\("\/api\/diff-summary"/);
+  assert.match(source, /formatDiffSummaryForClipboard\(summary\)/);
   assert.match(source, /copyDiffButton\.addEventListener\("click", copyChartDiff\)/);
   assert.match(source, /formatDiffForClipboard\(lastDiff/);
   assert.match(source, /getElementById\("diff-current"\)/);

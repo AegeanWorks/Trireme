@@ -37,6 +37,7 @@ const HELP_SECTIONS = {
     ["Filter presets", "Search saved presets by name, chart or endpoints"],
     ["Sort presets", "Order saved presets by name or chart size"],
     ["Compare presets", "Show a line-by-line diff of two saved charts"],
+    ["Copy diff summary", "Copy changed/added/removed counts"],
     ["Validate presets", "Check every saved chart and endpoint"],
 
     ["Copy diff", "Copy that chart diff to the clipboard"],
@@ -1144,6 +1145,39 @@ function diffCharts(leftText, rightText) {
   return { rows, ...counts };
 }
 
+function diffSummaryRequestBody(left, right) {
+  return JSON.stringify({ left: String(left || ""), right: String(right || "") });
+}
+
+function parseDiffSummaryResponse(result) {
+  if (!result || !result.ok || typeof result.total !== "number") {
+    throw new Error(result && result.error ? result.error : "Could not summarize this diff.");
+  }
+  return {
+    changed: result.changed,
+    added: result.added,
+    removed: result.removed,
+    total: result.total,
+  };
+}
+
+function formatDiffSummaryForClipboard(summary) {
+  if (!summary || typeof summary.total !== "number") {
+    throw new Error("No diff summary to copy.");
+  }
+  return (
+    "Trireme chart diff summary\nchanged=" +
+    summary.changed +
+    " added=" +
+    summary.added +
+    " removed=" +
+    summary.removed +
+    " total=" +
+    summary.total +
+    "\n"
+  );
+}
+
 function chartDiffRequestBody(left, right) {
   return JSON.stringify({ left: String(left || ""), right: String(right || "") });
 }
@@ -1587,6 +1621,9 @@ if (typeof module !== "undefined" && module.exports) {
     chartDiffRequestBody,
     parseChartDiffResponse,
     chartDiffFromRows,
+    diffSummaryRequestBody,
+    parseDiffSummaryResponse,
+    formatDiffSummaryForClipboard,
     formatDiffForClipboard,
     diffAgainstPreset,
     calmChartText,
@@ -1632,6 +1669,7 @@ if (typeof document !== "undefined") {
   const diffRight = document.getElementById("diff-right");
   const diffOutput = document.getElementById("diff-output");
   const comparePresetsButton = document.getElementById("compare-presets");
+  const copyDiffSummaryButton = document.getElementById("copy-diff-summary");
   const copyDiffButton = document.getElementById("copy-diff");
   const diffCurrentButton = document.getElementById("diff-current");
   const validatePresetsButton = document.getElementById("validate-presets");
@@ -2006,6 +2044,38 @@ if (typeof document !== "undefined") {
     }
     if (previous[1] && saved.some((item) => item.name === previous[1])) {
       diffRight.value = previous[1];
+    }
+  }
+
+  async function copyDiffSummary() {
+    const saved = storedPresets();
+    const left = saved.find((item) => item.name === diffLeft.value);
+    const right = saved.find((item) => item.name === diffRight.value);
+    if (!left || !right) {
+      setState("Choose two saved presets for the summary.", "bad");
+      return;
+    }
+    try {
+      const response = await fetch("/api/diff-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: diffSummaryRequestBody(left.chart, right.chart),
+      });
+      const summary = parseDiffSummaryResponse(await response.json());
+      const text = formatDiffSummaryForClipboard(summary);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("Diff summary copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
     }
   }
 
@@ -2833,6 +2903,7 @@ if (typeof document !== "undefined") {
   renamePresetButton.addEventListener("click", renameSelectedPreset);
   duplicatePresetButton.addEventListener("click", duplicateSelectedPreset);
   comparePresetsButton.addEventListener("click", compareSavedPresets);
+  copyDiffSummaryButton.addEventListener("click", copyDiffSummary);
   copyDiffButton.addEventListener("click", copyChartDiff);
   diffCurrentButton.addEventListener("click", diffCurrentAgainstPreset);
   validatePresetsButton.addEventListener("click", validateSavedPresets);
