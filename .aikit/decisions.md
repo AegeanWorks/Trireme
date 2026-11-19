@@ -46,3 +46,10 @@ contract, a dependency, a data format or the architecture; IDs are consecutive a
 - **Context**: The route total hid which headings were expensive, and CSV export only had headings.
 - **Decision**: Add step_times to the shared route JSON, populate it from Dijkstra's chosen moves, and render it in the browser panel and the CSV time_units column.
 - **Consequences**: Consumers can see where time is spent and the times sum to the total; the cost is one more array to keep aligned with steps and covered by tests.
+
+### ADR-006: Browser comparison uses the Rust calm baseline
+- **Date**: 2026-11-19
+- **Status**: Accepted
+- **Context**: The browser previously zeroed wind and currents with its own JavaScript copy of the transformation, which could drift from the CLI chart --calm implementation.
+- **Decision**: Expose chart::calm through POST /api/calm and have the comparison fetch that baseline instead of deriving it in JavaScript; ADR-004's client-side derivation is superseded.
+- **Consequences**: One Rust implementation defines calm water for CLI and UI; the browser makes one extra local request per comparison, and API shape is covered by Rust and node tests.

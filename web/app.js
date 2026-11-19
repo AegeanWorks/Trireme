@@ -202,6 +202,8 @@ function validateChartText(text) {
   return String(text).replace(/\r\n?/g, "\n");
 }
 
+// Tooling/test-only helper; the browser takes its calm baseline from the
+// Rust implementation through POST /api/calm so both agree exactly.
 function calmChartText(text) {
   return validateChartText(text)
     .split("\n")
@@ -217,6 +219,19 @@ function calmChartText(text) {
       return line;
     })
     .join("\n");
+}
+
+function calmRequestBody(text) {
+  return JSON.stringify({ chart: String(text || "") });
+}
+
+function parseCalmResponse(result) {
+  if (!result || !result.ok || typeof result.chart !== "string") {
+    throw new Error(
+      result && result.error ? result.error : "Could not derive the calm chart."
+    );
+  }
+  return result.chart;
 }
 
 function compareSummary(current, calm) {
@@ -1349,6 +1364,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatDiffForClipboard,
     diffAgainstPreset,
     calmChartText,
+    calmRequestBody,
+    parseCalmResponse,
     compareSummary,
     csvCell,
     routeToCsv,
@@ -2308,6 +2325,15 @@ if (typeof document !== "undefined") {
     return response.json();
   }
 
+  async function askCalm(chartText) {
+    const response = await fetch("/api/calm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: calmRequestBody(chartText),
+    });
+    return parseCalmResponse(await response.json());
+  }
+
   function currentQuery() {
     validateChartText(chart.value);
     return { chart: chart.value, from: point(from.value), to: point(to.value) };
@@ -2349,7 +2375,8 @@ if (typeof document !== "undefined") {
       return;
     }
     try {
-      const calm = { ...query, chart: calmChartText(query.chart) };
+      const calmChart = await askCalm(query.chart);
+      const calm = { ...query, chart: calmChart };
       const [withWind, still] = await Promise.all([ask(query), ask(calm)]);
       if (!withWind.ok || !still.ok) {
         comparePanel.hidden = true;

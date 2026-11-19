@@ -69,6 +69,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("GET", "/app.js") => serve_file(project_root, "app.js", "text/javascript; charset=utf-8"),
         ("GET", "/styles.css") => serve_file(project_root, "styles.css", "text/css; charset=utf-8"),
         ("POST", "/api/route") => api_route(&request.body),
+        ("POST", "/api/calm") => api_calm(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -88,6 +89,30 @@ fn serve_file(project_root: &Path, name: &str, content_type: &str) -> String {
             "text/plain; charset=utf-8",
             &format!("cannot read web/{name}: {err}"),
         ),
+    }
+}
+
+/// Returns the Rust-derived calm-water copy of a chart.
+pub fn api_calm(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    match chart::calm(&raw) {
+        Ok(still) => response(
+            200,
+            "application/json",
+            &format!("{{\"ok\":true,\"chart\":{}}}", json::quote(&still)),
+        ),
+        Err(err) => response(400, "application/json", &error_json(&err)),
     }
 }
 
@@ -279,6 +304,18 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn calm_endpoint_returns_the_rust_baseline() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 4 1\\nwind 1 0\\ncurrent 0 0 1 0\\n\"}";
+        let out = api_calm(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("wind 0 0"));
+        assert!(out.contains("current 0 0 0 0"));
+        assert!(api_calm("{}").starts_with("HTTP/1.1 400"));
+        assert!(api_calm("{\"chart\":\"grid 2 2\"}").starts_with("HTTP/1.1 400"));
     }
 
     #[test]

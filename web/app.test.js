@@ -15,6 +15,8 @@ const {
   chartIssues,
   formatChartIssues,
   calmChartText,
+  calmRequestBody,
+  parseCalmResponse,
   compareSummary,
   csvCell,
   routeToCsv,
@@ -220,6 +222,15 @@ test("calm charts keep the geometry but zero wind and currents", () => {
   assert.doesNotMatch(calm, /wind 1 -1/);
   assert.equal(calmChartText(calm), calm);
   assert.throws(() => calmChartText("grid 2 2\nwind 0 0\n"));
+});
+
+test("calm API request and response helpers are strict", () => {
+  const chartText = "TRIREME-CHART v1\ngrid 4 1\nwind 1 0\n";
+  assert.equal(calmRequestBody(chartText), JSON.stringify({ chart: chartText }));
+  assert.equal(parseCalmResponse({ ok: true, chart: "wind 0 0" }), "wind 0 0");
+  assert.throws(() => parseCalmResponse(null), /Could not derive/);
+  assert.throws(() => parseCalmResponse({ ok: false, error: "bad chart" }), /bad chart/);
+  assert.throws(() => parseCalmResponse({ ok: true }), /Could not derive/);
 });
 
 test("comparison summaries say who was faster", () => {
@@ -1045,6 +1056,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /link\.download = chartName/);
   assert.match(source, /getElementById\("compare"\)\.addEventListener/);
   assert.match(source, /Promise\.all\(\[ask\(query\), ask\(calm\)\]\)/);
+  assert.match(source, /fetch\("\/api\/calm"/);
+  assert.match(source, /const calmChart = await askCalm\(query\.chart\)/);
   assert.match(source, /getElementById\("export-csv"\)\.addEventListener/);
   assert.match(source, /routeCsvFilename\(chartName\)/);
   assert.match(source, /const clearHistory = document\.getElementById\("clear-history"\)/);

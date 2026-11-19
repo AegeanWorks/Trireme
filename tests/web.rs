@@ -47,6 +47,22 @@ fn server_serves_the_page_and_answers_a_route() {
 }
 
 #[test]
+fn server_returns_the_calm_baseline_over_http() {
+    let address = spawn_server();
+    let body = br#"{"chart":"TRIREME-CHART v1\ngrid 3 1\nwind 1 0\ncurrent 0 0 1 0\n"}"#;
+    let request = format!(
+        "POST /api/calm HTTP/1.1\r\nHost: test\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        String::from_utf8_lossy(body)
+    );
+    let answer = ask(address, request.as_bytes());
+    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n"), "{answer}");
+    assert!(answer.contains("\"ok\":true"));
+    assert!(answer.contains("wind 0 0"));
+    assert!(answer.contains("current 0 0 0 0"));
+}
+
+#[test]
 fn server_answers_expect_continue_clients() {
     let address = spawn_server();
     let mut stream = TcpStream::connect(address).unwrap();
