@@ -199,6 +199,27 @@ pub fn to_text(chart: &Chart) -> String {
     text
 }
 
+/// Returns a copy of the chart with wind and every current set to still water.
+///
+/// Land, grid size and comments are preserved, so the result is a genuine
+/// calm-water baseline for the same geography. The text is validated first.
+pub fn calm(text: &str) -> Result<String, String> {
+    parse(text)?;
+    let mut out: Vec<String> = Vec::new();
+    for line in text.replace("\r\n", "\n").replace('\r', "\n").split('\n') {
+        let trimmed = line.trim();
+        if trimmed.starts_with("wind ") {
+            out.push("wind 0 0".to_string());
+        } else if trimmed.starts_with("current ") {
+            let coordinates: Vec<&str> = trimmed.split_whitespace().take(3).collect();
+            out.push(format!("{} 0 0", coordinates.join(" ")));
+        } else {
+            out.push(line.to_string());
+        }
+    }
+    Ok(out.join("\n"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -242,6 +263,26 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn calm_zeroes_flow_but_keeps_geography() {
+        let text = concat!(
+            "# note\r\nTRIREME-CHART v1\r\ngrid 4 3\r\nwind 1 -1\r\n",
+            "land 2 2\r\ncurrent 1 1 0 1\r\ncurrent 3 0 -1 0\r\n"
+        );
+        let still = calm(text).unwrap();
+        assert!(still.contains("# note"));
+        assert!(still.contains("grid 4 3"));
+        assert!(still.contains("land 2 2"));
+        assert!(still.contains("wind 0 0"));
+        assert!(still.contains("current 1 1 0 0"));
+        assert!(still.contains("current 3 0 0 0"));
+        assert!(!still.contains("wind 1 -1"));
+        let parsed = parse(&still).unwrap();
+        assert_eq!(parsed.wind, Vec2::calm());
+        assert!(parsed.currents.values().all(|v| *v == Vec2::calm()));
+        assert!(calm("grid 2 2\nwind 0 0\n").is_err());
     }
 
     #[test]

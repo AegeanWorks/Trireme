@@ -30,7 +30,7 @@ You describe a grid of water, land, a prevailing wind and optional local current
 
 | Command | What it does |
 |---|---|
-| `trireme chart <chart> [--json]` | Describe the grid, wind, land and current count. |
+| `trireme chart <chart> [--json] [--calm]` | Describe the grid, wind, land and current count; `--calm` prints a copy with wind and currents zeroed. |
 | `trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]` | Print the headings, waypoints, total time, per-step times and cells explored; `--json` emits the shared route document including `step_times` (ADR-005). |
 | `trireme serve [--port N] [--project DIR]` | Serve the browser UI from `DIR/web` on loopback (default `7878`). |
 | `trireme help` / `trireme --version` | Show usage or the version. |

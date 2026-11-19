@@ -88,6 +88,22 @@ fn wind_changes_time_and_ascii_marks_the_route() {
 }
 
 #[test]
+fn chart_calm_zeroes_wind_and_currents_for_the_same_geography() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("# note\ngrid 4 3\nwind 1 -1\nland 2 2\ncurrent 1 1 0 1\n");
+    let calm = ok_text(&run(&["chart", &chart, "--calm"]));
+    assert!(calm.contains("# note"));
+    assert!(calm.contains("grid 4 3"));
+    assert!(calm.contains("land 2 2"));
+    assert!(calm.contains("wind 0 0"));
+    assert!(calm.contains("current 1 1 0 0"));
+    assert!(!calm.contains("wind 1 -1"));
+    let json = ok_text(&run(&["chart", &chart, "--calm", "--json"]));
+    assert!(json.contains("\"ok\":true"));
+    assert!(json.contains("wind 0 0"));
+}
+
+#[test]
 fn json_output_is_machine_readable_for_charts_routes_and_failures() {
     let scratch = Scratch::new();
     let chart = scratch.chart("grid 4 2\nwind 1 0\nland 2 1\n");

@@ -6,6 +6,7 @@ use std::net::TcpListener;
 use std::path::PathBuf;
 
 use crate::chart;
+use crate::json;
 use crate::router::{find_route, render_ascii};
 use crate::web;
 
@@ -14,7 +15,7 @@ trireme — offline sailing route planner for small sea charts
 
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
-  trireme chart <chart> [--json]
+  trireme chart <chart> [--json] [--calm]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
 
@@ -204,13 +205,40 @@ fn cmd_route(args: &[&str]) -> i32 {
 
 fn cmd_chart(args: &[&str]) -> i32 {
     let json_output = args.iter().any(|arg| *arg == "--json");
-    let paths: Vec<&str> = args.iter().copied().filter(|arg| *arg != "--json").collect();
+    let calm_output = args.iter().any(|arg| *arg == "--calm");
+    let paths: Vec<&str> = args
+        .iter()
+        .copied()
+        .filter(|arg| *arg != "--json" && *arg != "--calm")
+        .collect();
     if paths.len() != 1 || paths[0].starts_with('-') {
         return fail(
             "chart needs exactly one chart file",
             "Describing a chart requires a single source.",
-            "Use: trireme chart <chart> [--json]",
+            "Use: trireme chart <chart> [--json] [--calm]",
         );
+    }
+    if calm_output {
+        let raw = match fs::read_to_string(paths[0]) {
+            Ok(raw) => raw,
+            Err(err) => {
+                return fail(
+                    &format!("cannot read chart '{}': {err}", paths[0]),
+                    "A calm copy needs the original chart text.",
+                    "Check the path and permissions, then retry.",
+                )
+            }
+        };
+        let still = match chart::calm(&raw) {
+            Ok(still) => still,
+            Err(err) => return fail(&err, "The chart must be valid before it can be calmed.", "Fix the named chart problem and retry."),
+        };
+        if json_output {
+            println!("{{\"ok\":true,\"chart\":{}}}", json::quote(&still));
+        } else {
+            print!("{still}");
+        }
+        return 0;
     }
     let sea = match read_chart(paths[0]) {
         Ok(sea) => sea,

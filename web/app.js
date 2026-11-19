@@ -2,7 +2,7 @@
 
 const HELP_SECTIONS = {
   commands: [
-    ["chart <file> [--json]", "Describe grid, wind, land and currents"],
+    ["chart <file> [--json] [--calm]", "Describe a chart or print its calm-water copy"],
     ["route <file> --from X,Y --to X,Y [--ascii] [--json]", "Plan the fastest route"],
     ["serve [--port N] [--project DIR]", "Serve this browser UI on 127.0.0.1"],
     ["help | --version", "Show CLI help or version"],
