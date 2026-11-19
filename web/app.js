@@ -101,6 +101,30 @@ function compareSummary(current, calm) {
   return "Wind and current cost " + -delta + " units (" + percent + "% slower).";
 }
 
+function csvCell(value) {
+  const text = String(value);
+  return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+}
+
+function routeToCsv(route) {
+  if (!route || !Array.isArray(route.waypoints) || !Array.isArray(route.steps)) {
+    throw new Error("No route to export as CSV.");
+  }
+  const lines = ["step,x,y,heading"];
+  route.waypoints.forEach((point, index) => {
+    if (!Array.isArray(point) || point.length !== 2) {
+      throw new Error("Route waypoints must be [x,y] pairs.");
+    }
+    const heading = index === 0 ? "start" : route.steps[index - 1] || "";
+    lines.push([index, point[0], point[1], heading].map(csvCell).join(","));
+  });
+  return lines.join("\n") + "\n";
+}
+
+function routeCsvFilename(name) {
+  return chartFilename(name).replace(/\.txt$/, "") + ".csv";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     PRESETS,
@@ -110,6 +134,9 @@ if (typeof module !== "undefined" && module.exports) {
     validateChartText,
     calmChartText,
     compareSummary,
+    csvCell,
+    routeToCsv,
+    routeCsvFilename,
   };
 }
 
@@ -240,6 +267,28 @@ if (typeof document !== "undefined") {
     setState("Route exported as trireme-route.json.", "good");
   }
 
+  function exportCsv() {
+    if (lastRoute === null) {
+      setState("Plan a route before exporting it.", "bad");
+      return;
+    }
+    let csv;
+    try {
+      csv = routeToCsv(lastRoute);
+    } catch (error) {
+      setState(String(error.message), "bad");
+      return;
+    }
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = routeCsvFilename(chartName);
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Route exported as " + link.download + ".", "good");
+  }
+
   async function ask(query) {
     const response = await fetch("/api/route", {
       method: "POST",
@@ -317,6 +366,7 @@ if (typeof document !== "undefined") {
   document.getElementById("import").addEventListener("click", importChart);
   document.getElementById("download").addEventListener("click", downloadChart);
   document.getElementById("export").addEventListener("click", exportRoute);
+  document.getElementById("export-csv").addEventListener("click", exportCsv);
   document.getElementById("compare").addEventListener("click", compare);
   preset.addEventListener("change", () => {
     const selection = applyPreset(preset.value);

@@ -13,6 +13,9 @@ const {
   validateChartText,
   calmChartText,
   compareSummary,
+  csvCell,
+  routeToCsv,
+  routeCsvFilename,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -39,7 +42,7 @@ test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
     "chart", "from", "to", "preset", "file", "plan", "compare", "save",
-    "load", "import", "download", "export", "map", "compare-panel",
+    "load", "import", "download", "export", "export-csv", "map", "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
@@ -112,6 +115,33 @@ test("comparison summaries say who was faster", () => {
   );
 });
 
+test("CSV export turns waypoints into one row per step", () => {
+  const route = {
+    waypoints: [[0, 2], [1, 2], [2, 1]],
+    steps: ["E", "NE"],
+    time: 240,
+  };
+  assert.equal(
+    routeToCsv(route),
+    "step,x,y,heading\n0,0,2,start\n1,1,2,E\n2,2,1,NE\n"
+  );
+  assert.equal(
+    routeToCsv({ waypoints: [[3, 4]], steps: [] }),
+    "step,x,y,heading\n0,3,4,start\n"
+  );
+  assert.throws(() => routeToCsv(null), /No route/);
+  assert.throws(() => routeToCsv({ waypoints: [[1]], steps: [] }), /\[x,y\]/);
+});
+
+test("CSV cells quote commas and quotes, and filenames end in .csv", () => {
+  assert.equal(csvCell("plain"), "plain");
+  assert.equal(csvCell("a,b"), '"a,b"');
+  assert.equal(csvCell('say "hi"'), '"say ""hi"""');
+  assert.equal(csvCell("line\nbreak"), '"line\nbreak"');
+  assert.equal(routeCsvFilename("my chart.txt"), "my_chart.csv");
+  assert.equal(routeCsvFilename(""), "chart.csv");
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -119,6 +149,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /link\.download = chartName/);
   assert.match(source, /getElementById\("compare"\)\.addEventListener/);
   assert.match(source, /Promise\.all\(\[ask\(query\), ask\(calm\)\]\)/);
+  assert.match(source, /getElementById\("export-csv"\)\.addEventListener/);
+  assert.match(source, /routeCsvFilename\(chartName\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

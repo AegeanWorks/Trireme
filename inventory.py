@@ -17,5 +17,6 @@ if __name__ == "__main__":
     print('button|import|web/index.html#import')
     print('button|download|web/index.html#download')
     print('button|export|web/index.html#export')
+    print('button|export-csv|web/index.html#export-csv')
     print('output|map|web/index.html#map')
     print('cli|help|--help')
