@@ -92,6 +92,8 @@ const {
   formatIssuesForClipboard,
   normalizeRequestBody,
   parseNormalizeResponse,
+  compareRequestBody,
+  parseCompareResponse,
   formatPresetStatsForClipboard,
   formatChartForClipboard,
   diffCharts,
@@ -280,6 +282,24 @@ test("calm API request and response helpers are strict", () => {
   assert.throws(() => parseCalmResponse(null), /Could not derive/);
   assert.throws(() => parseCalmResponse({ ok: false, error: "bad chart" }), /bad chart/);
   assert.throws(() => parseCalmResponse({ ok: true }), /Could not derive/);
+});
+
+test("compare API helpers keep the Rust document shape strict", () => {
+  const body = compareRequestBody("TRIREME-CHART v1\n", "0,2", "7,0");
+  assert.deepEqual(JSON.parse(body), {
+    chart: "TRIREME-CHART v1\n",
+    from: [0, 2],
+    to: [7, 0],
+  });
+  const wind = { time: 647, steps: ["E"] };
+  const calm = { time: 780, steps: ["SE"] };
+  const parsed = parseCompareResponse({ ok: true, from: [0, 2], to: [7, 0], saved: 133, wind, calm });
+  assert.equal(parsed.saved, 133);
+  assert.equal(parsed.wind, wind);
+  assert.equal(parsed.calm, calm);
+  assert.throws(() => parseCompareResponse(null), /Could not compare/);
+  assert.throws(() => parseCompareResponse({ ok: false, error: "NO ROUTE" }), /NO ROUTE/);
+  assert.throws(() => parseCompareResponse({ ok: true, wind }), /Could not compare/);
 });
 
 test("comparison summaries say who was faster", () => {
@@ -1165,9 +1185,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("download"\)\.addEventListener/);
   assert.match(source, /link\.download = chartName/);
   assert.match(source, /getElementById\("compare"\)\.addEventListener/);
-  assert.match(source, /Promise\.all\(\[ask\(query\), ask\(calm\)\]\)/);
-  assert.match(source, /fetch\("\/api\/calm"/);
-  assert.match(source, /const calmChart = await askCalm\(query\.chart\)/);
+  assert.match(source, /fetch\("\/api\/compare"/);
+  assert.match(source, /compareRequestBody\(query\.chart, query\.from, query\.to\)/);
+  assert.match(source, /parseCompareResponse\(await response\.json\(\)\)/);
   assert.match(source, /getElementById\("export-csv"\)\.addEventListener/);
   assert.match(source, /routeCsvFilename\(chartName\)/);
   assert.match(source, /const clearHistory = document\.getElementById\("clear-history"\)/);
@@ -1285,7 +1305,7 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /comparisonToJson\(lastComparison\)/);
   assert.match(source, /getElementById\("copy-compare-md"\)/);
   assert.match(source, /comparisonToMarkdown\(lastComparison\)/);
-  assert.match(source, /lastComparison = \{ withWind, still, query \}/);
+  assert.match(source, /lastComparison = \{ withWind: wind, still: result\.calm, query \}/);
   assert.match(source, /const applyImport = document\.getElementById\("apply-import"\)/);
   assert.match(source, /const cancelImport = document\.getElementById\("cancel-import"\)/);
   assert.match(source, /applyImport\.addEventListener\("click"/);

@@ -73,6 +73,7 @@ pub fn handle(raw: &str, project_root: &Path) -> String {
         ("POST", "/api/stats") => api_stats(&request.body),
         ("POST", "/api/issues") => api_issues(&request.body),
         ("POST", "/api/normalize") => api_normalize(&request.body),
+        ("POST", "/api/compare") => api_compare(&request.body),
         ("GET", _) => response(404, "text/plain; charset=utf-8", "not found"),
         _ => response(405, "text/plain; charset=utf-8", "method not allowed"),
     }
@@ -209,6 +210,68 @@ pub fn api_calm(body: &str) -> String {
         ),
         Err(err) => response(400, "application/json", &error_json(&err)),
     }
+}
+
+/// Plans one query against both the chart and its calm baseline in Rust.
+pub fn api_compare(body: &str) -> String {
+    let parsed = match json::fields(body) {
+        Ok(parsed) => parsed,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let raw = match parsed
+        .get("chart")
+        .ok_or_else(|| "missing field 'chart'".to_string())
+        .and_then(|value| json::string_value(value))
+    {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let from = match parsed
+        .get("from")
+        .ok_or_else(|| "missing field 'from'".to_string())
+        .and_then(|value| json::point_value(value))
+    {
+        Ok(point) => point,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let to = match parsed
+        .get("to")
+        .ok_or_else(|| "missing field 'to'".to_string())
+        .and_then(|value| json::point_value(value))
+    {
+        Ok(point) => point,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let still_text = match chart::calm(&raw) {
+        Ok(text) => text,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let sea = match chart::parse(&raw) {
+        Ok(sea) => sea,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let calm_sea = match chart::parse(&still_text) {
+        Ok(sea) => sea,
+        Err(err) => return response(400, "application/json", &error_json(&err)),
+    };
+    let (wind, calm) = match (find_route(&sea, from, to), find_route(&calm_sea, from, to)) {
+        (Ok(Some(wind)), Ok(Some(calm))) => (wind, calm),
+        (Ok(None), _) | (_, Ok(None)) => {
+            let message = format!(
+                "NO ROUTE: ({},{}) cannot reach ({},{}) on this chart",
+                from.0, from.1, to.0, to.1
+            );
+            return response(200, "application/json", &error_json(&message));
+        }
+        (Err(err), _) | (_, Err(err)) => {
+            return response(400, "application/json", &error_json(&err))
+        }
+    };
+    response(
+        200,
+        "application/json",
+        &comparison_json(from, to, &wind, &calm),
+    )
 }
 
 /// Answers a planning request from the browser.
@@ -419,6 +482,20 @@ mod tests {
         assert!(out.contains("\"steps\":[\"E\",\"E\",\"E\",\"E\"]"));
         assert!(out.contains("\"time\":400"));
         assert!(out.contains("\"ascii\":\"SoooG\""));
+    }
+
+    #[test]
+    fn compare_endpoint_returns_the_rust_comparison_document() {
+        let body = "{\"chart\":\"TRIREME-CHART v1\\ngrid 5 1\\nwind 1 0\\n\",\"from\":[0,0],\"to\":[4,0]}";
+        let out = api_compare(body);
+        assert!(out.starts_with("HTTP/1.1 200 OK\r\n"), "{out}");
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("\"saved\":68"));
+        assert!(out.contains("\"wind\":{"));
+        assert!(out.contains("\"calm\":{"));
+        assert!(api_compare("{}").starts_with("HTTP/1.1 400"));
+        assert!(api_compare("{\"chart\":\"grid 2 2\",\"from\":[0,0],\"to\":[1,1]}")
+            .starts_with("HTTP/1.1 400"));
     }
 
     #[test]

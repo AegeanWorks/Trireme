@@ -47,6 +47,22 @@ fn server_serves_the_page_and_answers_a_route() {
 }
 
 #[test]
+fn server_compares_over_http() {
+    let address = spawn_server();
+    let body = br#"{"chart":"TRIREME-CHART v1\ngrid 5 1\nwind 1 0\n","from":[0,0],"to":[4,0]}"#;
+    let request = format!(
+        "POST /api/compare HTTP/1.1\r\nHost: test\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        String::from_utf8_lossy(body)
+    );
+    let answer = ask(address, request.as_bytes());
+    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n"), "{answer}");
+    assert!(answer.contains("\"ok\":true"));
+    assert!(answer.contains("\"saved\":68"));
+    assert!(answer.contains("\"wind\":{"));
+}
+
+#[test]
 fn server_normalizes_charts_over_http() {
     let address = spawn_server();
     let body = br#"{"chart":"TRIREME-CHART v1\nland 1 1\nwind 0 0\ngrid 3 2\n"}"#;

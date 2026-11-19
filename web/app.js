@@ -269,6 +269,7 @@ function calmChartText(text) {
     .join("\n");
 }
 
+// Tooling/test-only helpers; the browser comparison now uses POST /api/compare.
 function calmRequestBody(text) {
   return JSON.stringify({ chart: String(text || "") });
 }
@@ -280,6 +281,29 @@ function parseCalmResponse(result) {
     );
   }
   return result.chart;
+}
+
+function compareRequestBody(chartText, from, to) {
+  return JSON.stringify({
+    chart: String(chartText || ""),
+    from: point(from),
+    to: point(to),
+  });
+}
+
+function parseCompareResponse(result) {
+  if (!result || !result.ok || !result.wind || !result.calm) {
+    throw new Error(
+      result && result.error ? result.error : "Could not compare this chart."
+    );
+  }
+  return {
+    from: result.from,
+    to: result.to,
+    saved: typeof result.saved === "number" ? result.saved : 0,
+    wind: result.wind,
+    calm: result.calm,
+  };
 }
 
 function compareSummary(current, calm) {
@@ -1511,6 +1535,8 @@ if (typeof module !== "undefined" && module.exports) {
     calmChartText,
     calmRequestBody,
     parseCalmResponse,
+    compareRequestBody,
+    parseCompareResponse,
     compareSummary,
     csvCell,
     routeToCsv,
@@ -2586,15 +2612,6 @@ if (typeof document !== "undefined") {
     return response.json();
   }
 
-  async function askCalm(chartText) {
-    const response = await fetch("/api/calm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: calmRequestBody(chartText),
-    });
-    return parseCalmResponse(await response.json());
-  }
-
   function currentQuery() {
     validateChartText(chart.value);
     return { chart: chart.value, from: point(from.value), to: point(to.value) };
@@ -2636,28 +2653,28 @@ if (typeof document !== "undefined") {
       return;
     }
     try {
-      const calmChart = await askCalm(query.chart);
-      const calm = { ...query, chart: calmChart };
-      const [withWind, still] = await Promise.all([ask(query), ask(calm)]);
-      if (!withWind.ok || !still.ok) {
-        comparePanel.hidden = true;
-        setState(withWind.error || still.error || "No route found.", "bad");
-        return;
-      }
+      const response = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: compareRequestBody(query.chart, query.from, query.to),
+      });
+      const result = parseCompareResponse(await response.json());
+      const wind = result.wind;
       comparePanel.hidden = false;
-      compareSummaryText.textContent = compareSummary(withWind, still);
-      compareCurrent.textContent = withWind.time + " units";
-      compareCalm.textContent = still.time + " units";
-      const saved = still.time - withWind.time;
+      compareSummaryText.textContent = compareSummary(wind, result.calm);
+      compareCurrent.textContent = wind.time + " units";
+      compareCalm.textContent = result.calm.time + " units";
+      const saved = result.saved;
       compareDelta.textContent =
         (saved > 0 ? "-" : saved < 0 ? "+" : "") + Math.abs(saved) + " units";
-      lastRoute = withWind;
-      lastComparison = { withWind, still, query };
-      remember(query, withWind, "calm water compared");
-      show(withWind);
+      lastRoute = wind;
+      lastComparison = { withWind: wind, still: result.calm, query };
+      remember(query, wind, "calm water compared");
+      show(wind);
       setState("Compared the chart with calm water.", "good");
     } catch (error) {
-      setState("Could not reach the planner: " + error, "bad");
+      comparePanel.hidden = true;
+      setState(String(error.message), "bad");
     }
   }
 
