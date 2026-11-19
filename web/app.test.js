@@ -21,6 +21,7 @@ const {
   routeCsvFilename,
   formatStepTimes,
   formatRouteSummary,
+  formatRouteCommand,
   HISTORY_KEY,
   HISTORY_LIMIT,
   historyEntry,
@@ -118,7 +119,7 @@ test("the page declares every control the script binds", () => {
     "duplicate-preset-name", "duplicate-preset",
     "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-current",
     "validate-presets", "preset-validation", "diff-output",
-    "file", "plan", "clear-editor", "compare", "save",
+    "file", "plan", "clear-editor", "compare", "save", "copy-command",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -930,6 +931,23 @@ test("clipboard history summary is a labelled plain-text block", () => {
   assert.match(formatHelpText(), /Copy history summary/);
 });
 
+test("CLI command formatter quotes paths and normalizes endpoints", () => {
+  assert.equal(
+    formatRouteCommand("aegean.txt", "0,2", "7,0"),
+    "cargo run -- route aegean.txt --from 0,2 --to 7,0 --ascii"
+  );
+  assert.equal(
+    formatRouteCommand("my chart.txt", " 0 , 2 ", "7,0"),
+    'cargo run -- route "my chart.txt" --from 0,2 --to 7,0 --ascii'
+  );
+  assert.equal(
+    formatRouteCommand("", "0,0", "1,1"),
+    "cargo run -- route chart.txt --from 0,0 --to 1,1 --ascii"
+  );
+  assert.throws(() => formatRouteCommand("x.txt", "bad", "1,1"), /X,Y/);
+  assert.match(formatHelpText(), /Copy command/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1002,6 +1020,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-history-summary"\)/);
   assert.match(source, /copyHistorySummaryButton\.addEventListener\("click", copyHistorySummary\)/);
   assert.match(source, /formatHistorySummaryForClipboard\(historySummary\(entries\)\)/);
+  assert.match(source, /getElementById\("copy-command"\)/);
+  assert.match(source, /copyCommandButton\.addEventListener\("click", copyRouteCommand\)/);
+  assert.match(source, /formatRouteCommand\(chartName, from\.value, to\.value\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);

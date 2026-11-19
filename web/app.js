@@ -36,6 +36,7 @@ const HELP_SECTIONS = {
     ["Diff current", "Compare the editor chart with the right-hand preset"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
+    ["Copy command", "Copy the cargo command for this query"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Copy history summary", "Copy the history overview to the clipboard"],
@@ -1167,6 +1168,22 @@ function formatHistorySummaryForClipboard(summary) {
   return "Trireme history summary\n" + formatHistorySummary(summary) + "\n";
 }
 
+function formatRouteCommand(chartFile, from, to) {
+  const start = point(from);
+  const goal = point(to);
+  const file = String(chartFile || "").trim() || "chart.txt";
+  const quoted = /[\s"']/.test(file) ? '"' + file.replace(/"/g, '\\"') + '"' : file;
+  return (
+    "cargo run -- route " +
+    quoted +
+    " --from " +
+    start.join(",") +
+    " --to " +
+    goal.join(",") +
+    " --ascii"
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1243,6 +1260,7 @@ if (typeof module !== "undefined" && module.exports) {
     routeCsvFilename,
     formatStepTimes,
     formatRouteSummary,
+    formatRouteCommand,
     comparisonToCsv,
     comparisonCsvFilename,
   };
@@ -1285,6 +1303,7 @@ if (typeof document !== "undefined") {
   const file = document.getElementById("file");
   const swapEndpointsButton = document.getElementById("swap-endpoints");
   const copyChartButton = document.getElementById("copy-chart");
+  const copyCommandButton = document.getElementById("copy-command");
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const status = document.getElementById("status");
@@ -2040,6 +2059,25 @@ if (typeof document !== "undefined") {
     }
   }
 
+  async function copyRouteCommand() {
+    try {
+      const command = formatRouteCommand(chartName, from.value, to.value);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(command);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = command;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("CLI command copied to the clipboard.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
   function exportComparisonCsv() {
     if (lastComparison === null) {
       setState("Run a comparison before exporting it.", "bad");
@@ -2143,6 +2181,7 @@ if (typeof document !== "undefined") {
   document.getElementById("export").addEventListener("click", exportRoute);
   document.getElementById("export-csv").addEventListener("click", exportCsv);
   document.getElementById("copy-summary").addEventListener("click", copySummary);
+  copyCommandButton.addEventListener("click", copyRouteCommand);
   document.getElementById("compare").addEventListener("click", compare);
   document.getElementById("export-compare-csv").addEventListener("click", exportComparisonCsv);
   clearHistory.addEventListener("click", () => {

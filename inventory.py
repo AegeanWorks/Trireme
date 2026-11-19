@@ -52,6 +52,7 @@ if __name__ == "__main__":
     print('output|map|web/index.html#map')
     print('output|step-times|web/index.html#step-times')
     print('button|copy-summary|web/index.html#copy-summary')
+    print('button|copy-command|web/index.html#copy-command')
     print('panel|history|web/index.html#history-title')
     print('button|clear-history|web/index.html#clear-history')
     print('button|export-history|web/index.html#export-history')
