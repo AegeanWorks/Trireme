@@ -45,6 +45,7 @@ if __name__ == "__main__":
     print('output|compare-calm|web/index.html#compare-calm')
     print('output|compare-delta|web/index.html#compare-delta')
     print('button|export-compare-csv|web/index.html#export-compare-csv')
+    print('button|export-compare-json|web/index.html#export-compare-json')
     print('button|save|web/index.html#save')
     print('button|load|web/index.html#load')
     print('file|chart-file|web/index.html#file')

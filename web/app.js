@@ -42,6 +42,7 @@ const HELP_SECTIONS = {
     ["Copy command", "Copy the cargo command for this query"],
     ["Copy map", "Copy the ASCII route map with its legend"],
     ["Copy Markdown", "Copy a Markdown report of the route"],
+    ["Export comparison", "Download the wind-vs-calm comparison as CSV or JSON"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Copy history summary", "Copy the history overview to the clipboard"],
@@ -1292,6 +1293,38 @@ function removeLastHistoryEntry(entries, note) {
   return entries.slice(1);
 }
 
+function comparisonToJson(comparison) {
+  if (!comparison || !comparison.withWind || !comparison.still) {
+    throw new Error("No comparison to export as JSON.");
+  }
+  const wind = comparison.withWind;
+  const calm = comparison.still;
+  const source = comparison.query || wind;
+  const scenario = (route) => ({
+    time: typeof route.time === "number" ? route.time : null,
+    steps: Array.isArray(route.steps) ? route.steps.length : 0,
+    step_times: Array.isArray(route.step_times) ? route.step_times : [],
+    explored: typeof route.explored === "number" ? route.explored : null,
+  });
+  return JSON.stringify(
+    {
+      schema: "trireme.comparison/1",
+      from: source.from || wind.from,
+      to: source.to || wind.to,
+      saved: (typeof calm.time === "number" ? calm.time : 0) -
+        (typeof wind.time === "number" ? wind.time : 0),
+      wind: scenario(wind),
+      calm: scenario(calm),
+    },
+    null,
+    2
+  ) + "\n";
+}
+
+function comparisonJsonFilename() {
+  return "trireme-comparison.json";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1378,6 +1411,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatRouteAsMarkdown,
     comparisonToCsv,
     comparisonCsvFilename,
+    comparisonToJson,
+    comparisonJsonFilename,
   };
 }
 
@@ -2299,6 +2334,24 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function exportComparisonJson() {
+    if (lastComparison === null) {
+      setState("Run a comparison before exporting it.", "bad");
+      return;
+    }
+    const blob = new Blob([comparisonToJson(lastComparison)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const name = comparisonJsonFilename();
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+    setState("Comparison exported as " + name + ".", "good");
+  }
+
   function exportComparisonCsv() {
     if (lastComparison === null) {
       setState("Run a comparison before exporting it.", "bad");
@@ -2419,6 +2472,7 @@ if (typeof document !== "undefined") {
   copyMarkdownButton.addEventListener("click", copyRouteMarkdown);
   document.getElementById("compare").addEventListener("click", compare);
   document.getElementById("export-compare-csv").addEventListener("click", exportComparisonCsv);
+  document.getElementById("export-compare-json").addEventListener("click", exportComparisonJson);
   clearHistory.addEventListener("click", () => {
     localStorage.removeItem(HISTORY_KEY);
     renderHistory();

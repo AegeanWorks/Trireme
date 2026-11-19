@@ -39,6 +39,8 @@ const {
   mergeHistory,
   comparisonToCsv,
   comparisonCsvFilename,
+  comparisonToJson,
+  comparisonJsonFilename,
   historyImportSummary,
   formatImportSummary,
   filterHistory,
@@ -132,7 +134,7 @@ test("the page declares every control the script binds", () => {
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
-    "export-compare-csv",
+    "export-compare-csv", "export-compare-json",
     "history-title", "history-summary", "copy-history-summary", "undo-history",
     "clear-history", "export-history-csv",
     "export-history", "import-history",
@@ -1049,6 +1051,26 @@ test("undo drops only the newest history entry without mutating", () => {
   assert.match(formatHelpText(), /Undo last plan/);
 });
 
+test("comparison JSON is versioned and mirrors the two scenarios", () => {
+  const comparison = {
+    query: { from: [0, 2], to: [7, 0], chart: "x" },
+    withWind: { time: 647, steps: ["E", "NE"], step_times: [83, 116], explored: 26 },
+    still: { time: 780, steps: ["SE"], step_times: [156], explored: 30 },
+  };
+  const doc = JSON.parse(comparisonToJson(comparison));
+  assert.equal(doc.schema, "trireme.comparison/1");
+  assert.deepEqual(doc.from, [0, 2]);
+  assert.deepEqual(doc.to, [7, 0]);
+  assert.equal(doc.saved, 133);
+  assert.equal(doc.wind.time, 647);
+  assert.deepEqual(doc.wind.step_times, [83, 116]);
+  assert.equal(doc.calm.time, 780);
+  assert.equal(comparisonJsonFilename(), "trireme-comparison.json");
+  assert.equal(comparisonToJson(comparison), comparisonToJson(comparison));
+  assert.throws(() => comparisonToJson(null), /No comparison/);
+  assert.match(formatHelpText(), /Export comparison/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1159,6 +1181,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /historyFile\.addEventListener\("change", importHistory\)/);
   assert.match(source, /parseHistoryExport\(await picked\.text\(\)\)/);
   assert.match(source, /getElementById\("export-compare-csv"\)\.addEventListener/);
+  assert.match(source, /getElementById\("export-compare-json"\)/);
+  assert.match(source, /comparisonToJson\(lastComparison\)/);
   assert.match(source, /lastComparison = \{ withWind, still, query \}/);
   assert.match(source, /const applyImport = document\.getElementById\("apply-import"\)/);
   assert.match(source, /const cancelImport = document\.getElementById\("cancel-import"\)/);
