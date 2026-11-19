@@ -62,6 +62,7 @@ const {
   bundleApplyPreview,
   formatBundlePreview,
   defaultEditorState,
+  renameLocalPreset,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -92,6 +93,7 @@ test("the page declares every control the script binds", () => {
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
     "local-preset", "presets-file", "export-presets", "import-presets", "delete-preset",
+    "rename-preset-name", "rename-preset",
     "file", "plan", "clear-editor", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
@@ -679,6 +681,22 @@ test("clear editor restores the default chart and endpoints", () => {
   assert.match(formatHelpText(), /Clear editor/);
 });
 
+test("renaming a preset keeps content and sorts the list", () => {
+  const a = buildLocalPreset("alpha", "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n", "0,0", "3,0");
+  const b = buildLocalPreset("zeta", "TRIREME-CHART v1\ngrid 5 1\nwind 1 0\n", "0,0", "4,0");
+  const original = [a, b];
+  const renamed = renameLocalPreset(original, "alpha", "beta run");
+  assert.deepEqual(renamed.map((p) => p.name), ["beta run", "zeta"]);
+  assert.equal(renamed[0].chart, a.chart);
+  assert.equal(renamed[0].from, a.from);
+  assert.deepEqual(original.map((p) => p.name), ["alpha", "zeta"]);
+  assert.throws(() => renameLocalPreset(original, "missing", "x"), /not found/);
+  assert.throws(() => renameLocalPreset(original, "alpha", "zeta"), /already exists/);
+  assert.throws(() => renameLocalPreset(original, "alpha", "bad/name"));
+  assert.deepEqual(renameLocalPreset(original, "alpha", "Alpha"), [{ ...a, name: "Alpha" }, b]);
+  assert.match(formatHelpText(), /Rename preset/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -716,6 +734,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /bundleApplyPreview\(/);
   assert.match(source, /getElementById\("clear-editor"\)\.addEventListener\("click", clearEditor\)/);
   assert.match(source, /defaultEditorState\(\)/);
+  assert.match(source, /const renamePresetButton = document\.getElementById\("rename-preset"\)/);
+  assert.match(source, /renamePresetButton\.addEventListener\("click", renameSelectedPreset\)/);
+  assert.match(source, /renameLocalPreset\(storedPresets\(\), from, to\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

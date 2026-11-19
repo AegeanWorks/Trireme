@@ -23,6 +23,7 @@ const HELP_SECTIONS = {
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
+    ["Rename preset", "Rename the selected saved preset"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -792,6 +793,27 @@ function defaultEditorState(presets) {
   };
 }
 
+function renameLocalPreset(presets, fromName, toName) {
+  const from = normalizePresetName(fromName);
+  const to = normalizePresetName(toName);
+  if (!Array.isArray(presets)) {
+    throw new Error("No presets to rename.");
+  }
+  if (!presets.some((item) => item && normalizePresetName(item.name) === from)) {
+    throw new Error("Preset '" + from + "' not found.");
+  }
+  if (from !== to && presets.some((item) => item && normalizePresetName(item.name) === to)) {
+    throw new Error("Preset '" + to + "' already exists.");
+  }
+  return presets
+    .map((item) =>
+      item && normalizePresetName(item.name) === from
+        ? { ...item, name: to }
+        : item
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -833,6 +855,7 @@ if (typeof module !== "undefined" && module.exports) {
     parsePresetsExport,
     mergePresetFiles,
     removeLocalPreset,
+    renameLocalPreset,
     PRESETS,
     point,
     applyPreset,
@@ -872,6 +895,8 @@ if (typeof document !== "undefined") {
   const exportPresetsButton = document.getElementById("export-presets");
   const importPresetsButton = document.getElementById("import-presets");
   const deletePresetButton = document.getElementById("delete-preset");
+  const renamePresetName = document.getElementById("rename-preset-name");
+  const renamePresetButton = document.getElementById("rename-preset");
   const file = document.getElementById("file");
   const issuesPanel = document.getElementById("chart-issues");
   const status = document.getElementById("status");
@@ -1115,6 +1140,25 @@ if (typeof document !== "undefined") {
     localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(remaining));
     renderLocalPresets();
     setState("Preset '" + name + "' deleted.", "good");
+  }
+
+  function renameSelectedPreset() {
+    const from = localPreset.value;
+    if (!from) {
+      setState("Select a saved preset to rename.", "bad");
+      return;
+    }
+    try {
+      const to = normalizePresetName(renamePresetName.value);
+      const renamed = renameLocalPreset(storedPresets(), from, to);
+      localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(renamed));
+      renamePresetName.value = "";
+      renderLocalPresets();
+      localPreset.value = to;
+      setState("Preset '" + from + "' renamed to '" + to + "'.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   function applyLocalPreset() {
@@ -1532,6 +1576,7 @@ if (typeof document !== "undefined") {
   importPresetsButton.addEventListener("click", () => presetsFile.click());
   presetsFile.addEventListener("change", importPresets);
   deletePresetButton.addEventListener("click", deleteSelectedPreset);
+  renamePresetButton.addEventListener("click", renameSelectedPreset);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();
