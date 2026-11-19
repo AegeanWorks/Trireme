@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Project-owned UI inventory: one `kind|name|locator` line per control."""
 if __name__ == "__main__":
-    print('cli|chart|chart <chart> [--json] [--calm] [--stats]')
+    print('cli|chart|chart <chart> [--json] [--calm] [--stats] [--issues]')
     print('cli|route|route <chart> --from X,Y --to X,Y [--ascii] [--json]')
     print('cli|compare|compare <chart> --from X,Y --to X,Y [--json]')
     print('cli|serve|serve [--port N] [--project DIR]')

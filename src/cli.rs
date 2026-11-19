@@ -15,7 +15,7 @@ trireme — offline sailing route planner for small sea charts
 
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
-  trireme chart <chart> [--json] [--calm|--stats]
+  trireme chart <chart> [--json] [--calm|--stats|--issues]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -209,24 +209,70 @@ fn cmd_chart(args: &[&str]) -> i32 {
     let json_output = args.iter().any(|arg| *arg == "--json");
     let calm_output = args.iter().any(|arg| *arg == "--calm");
     let stats_output = args.iter().any(|arg| *arg == "--stats");
+    let issues_output = args.iter().any(|arg| *arg == "--issues");
     let paths: Vec<&str> = args
         .iter()
         .copied()
-        .filter(|arg| *arg != "--json" && *arg != "--calm" && *arg != "--stats")
+        .filter(|arg| !matches!(*arg, "--json" | "--calm" | "--stats" | "--issues"))
         .collect();
     if paths.len() != 1 || paths[0].starts_with('-') {
         return fail(
             "chart needs exactly one chart file",
             "Describing a chart requires a single source.",
-            "Use: trireme chart <chart> [--json] [--calm|--stats]",
+            "Use: trireme chart <chart> [--json] [--calm|--stats|--issues]",
         );
     }
-    if calm_output && stats_output {
+    let views = [calm_output, stats_output, issues_output]
+        .iter()
+        .filter(|selected| **selected)
+        .count();
+    if views > 1 {
         return fail(
-            "--calm and --stats cannot be combined",
+            "--calm, --stats and --issues cannot be combined",
             "Each flag selects one view of the chart.",
-            "Run the command twice, once with each flag.",
+            "Run the command once per view.",
         );
+    }
+    if issues_output {
+        let raw = match fs::read_to_string(paths[0]) {
+            Ok(raw) => raw,
+            Err(err) => {
+                return fail(
+                    &format!("cannot read chart '{}': {err}", paths[0]),
+                    "Issue reporting needs the original chart text.",
+                    "Check the path and permissions, then retry.",
+                )
+            }
+        };
+        let found = chart::issues(&raw);
+        if json_output {
+            let items: Vec<String> = found
+                .iter()
+                .map(|issue| {
+                    format!(
+                        "{{\"line\":{},\"message\":{}}}",
+                        issue.line,
+                        json::quote(&issue.message)
+                    )
+                })
+                .collect();
+            println!(
+                "{{\"ok\":true,\"valid\":{},\"issues\":[{}]}}",
+                found.is_empty(),
+                items.join(",")
+            );
+        } else if found.is_empty() {
+            println!("OK: no chart issues found.");
+        } else {
+            for issue in &found {
+                if issue.line == 0 {
+                    println!("chart: {}", issue.message);
+                } else {
+                    println!("line {}: {}", issue.line, issue.message);
+                }
+            }
+        }
+        return 0;
     }
     if stats_output {
         let sea = match read_chart(paths[0]) {

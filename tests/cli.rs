@@ -107,6 +107,23 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn chart_issues_reports_every_problem_in_text_and_json() {
+    let scratch = Scratch::new();
+    let chart = scratch.chart("grid 3 1\nwind 2 0\nunknown 7\n");
+    let text = ok_text(&run(&["chart", &chart, "--issues"]));
+    assert!(text.contains("line 3: expected wind <dx> <dy>"));
+    assert!(text.contains("line 4: unknown directive 'unknown'."));
+    let json = ok_text(&run(&["chart", &chart, "--issues", "--json"]));
+    assert!(json.contains("\"valid\":false"));
+    assert!(json.contains("\"line\":3"));
+    assert!(json.contains("\"line\":4"));
+    let clean = scratch.chart("grid 3 1\nwind 0 0\n");
+    assert_eq!(ok_text(&run(&["chart", &clean, "--issues"])).trim(), "OK: no chart issues found.");
+    let combined = run(&["chart", &chart, "--issues", "--stats"]);
+    assert_eq!(combined.status.code(), Some(2));
+}
+
+#[test]
 fn chart_stats_reports_counts_in_text_and_json() {
     let scratch = Scratch::new();
     let chart = scratch.chart("grid 4 3\nwind 1 0\nland 2 2\ncurrent 1 1 0 1\n");
