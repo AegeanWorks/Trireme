@@ -27,5 +27,11 @@
     "web/index.html"
   ],
   "ui_checked_at": "2026-11-19",
-  "ui_source": "detected"
+  "ui_source": "detected",
+  "archived": true,
+  "archived_at": "2026-11-19",
+  "archive_reason": "Used as a testbed for AIKit development; no further development planned.",
+  "archive_repo": "AegeanWorks/Trireme",
+  "archive_description": "[ARCHIVED] Trireme is an offline sailing route planner: deterministic shortest-time routing over small sea charts.",
+  "archive_origin": "projects/trireme"
 }
