@@ -27,5 +27,11 @@
     "web/index.html"
   ],
   "ui_checked_at": "2026-11-19",
-  "ui_source": "detected"
+  "ui_source": "detected",
+  "archived": true,
+  "archived_at": "2026-11-19",
+  "archive_reason": "AIKit development testbed only - not for production or real-world use. Archived, read-only, unmaintained; no further development, fixes or support.",
+  "archive_repo": "AegeanWorks/Trireme",
+  "archive_description": "[ARCHIVED] [!WARNING] Archived AIKit development testbed \u2014 do not use in production. This project exists only to exercise and validate AIKit's tooling and workflows. It is read-only and unmaintained: there will be no further development, fixes, updates, or support.",
+  "archive_origin": "projects/trireme"
 }
