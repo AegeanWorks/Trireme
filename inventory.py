@@ -10,6 +10,7 @@ if __name__ == "__main__":
     print('select|local-preset|web/index.html#local-preset')
     print('input|preset-filter|web/index.html#preset-filter')
     print('output|preset-filter-status|web/index.html#preset-filter-status')
+    print('select|preset-sort|web/index.html#preset-sort')
     print('file|presets-file|web/index.html#presets-file')
     print('button|export-presets|web/index.html#export-presets')
     print('button|import-presets|web/index.html#import-presets')

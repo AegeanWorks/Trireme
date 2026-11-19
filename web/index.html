@@ -60,6 +60,15 @@
         <span>Filter saved presets</span>
         <input id="preset-filter" type="search" spellcheck="false" placeholder="name, chart or endpoint">
       </label>
+      <label class="field">
+        <span>Sort saved presets</span>
+        <select id="preset-sort">
+          <option value="name">Name A-Z</option>
+          <option value="name-desc">Name Z-A</option>
+          <option value="chart-asc">Shortest chart first</option>
+          <option value="chart-desc">Longest chart first</option>
+        </select>
+      </label>
       <p id="preset-filter-status" class="hint">Showing 0 of 0 presets</p>
       <label class="field">
         <span>Saved presets (this browser)</span>

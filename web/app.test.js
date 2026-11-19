@@ -66,6 +66,7 @@ const {
   duplicateLocalPreset,
   filterLocalPresets,
   presetFilterSummary,
+  sortLocalPresets,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -95,7 +96,7 @@ test("the page declares every control the script binds", () => {
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
     "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
-    "local-preset", "preset-filter", "preset-filter-status",
+    "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
     "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
@@ -734,6 +735,22 @@ test("saved presets filter by name, chart and endpoints", () => {
   assert.match(formatHelpText(), /Filter presets/);
 });
 
+test("saved presets sort by name or chart size without mutating", () => {
+  const shortChart = "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n";
+  const longChart = "TRIREME-CHART v1\ngrid 8 4\nwind 1 0\nland 2 2\nland 3 1\n";
+  const alpha = buildLocalPreset("alpha", longChart, "0,0", "7,0");
+  const beta = buildLocalPreset("beta", shortChart, "0,0", "1,1");
+  const original = [alpha, beta];
+  assert.deepEqual(sortLocalPresets(original, "name").map((p) => p.name), ["alpha", "beta"]);
+  assert.deepEqual(sortLocalPresets(original, "name-desc").map((p) => p.name), ["beta", "alpha"]);
+  assert.deepEqual(sortLocalPresets(original, "chart-asc").map((p) => p.name), ["beta", "alpha"]);
+  assert.deepEqual(sortLocalPresets(original, "chart-desc").map((p) => p.name), ["alpha", "beta"]);
+  assert.deepEqual(sortLocalPresets(original, "unknown"), sortLocalPresets(original, "name"));
+  assert.deepEqual(sortLocalPresets(null, "name"), []);
+  assert.deepEqual(original.map((p) => p.name), ["alpha", "beta"]);
+  assert.match(formatHelpText(), /Sort presets/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -779,6 +796,8 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /duplicateLocalPreset\(storedPresets\(\), from, to\)/);
   assert.match(source, /presetFilter\.addEventListener\("input", renderLocalPresets\)/);
   assert.match(source, /filterLocalPresets\(saved, presetFilter\.value\)/);
+  assert.match(source, /presetSort\.addEventListener\("change", renderLocalPresets\)/);
+  assert.match(source, /sortLocalPresets\(/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);
