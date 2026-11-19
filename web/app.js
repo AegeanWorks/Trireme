@@ -29,6 +29,7 @@ const HELP_SECTIONS = {
     ["Sort presets", "Order saved presets by name or chart size"],
     ["Compare presets", "Show a line-by-line diff of two saved charts"],
     ["Copy diff", "Copy that chart diff to the clipboard"],
+    ["Diff current", "Compare the editor chart with the right-hand preset"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -1041,6 +1042,16 @@ function formatDiffForClipboard(diff, leftName, rightName) {
   );
 }
 
+function diffAgainstPreset(currentText, preset) {
+  if (!preset || typeof preset.chart !== "string") {
+    throw new Error("No saved preset to compare against.");
+  }
+  return {
+    diff: diffCharts(currentText, preset.chart),
+    label: "Current chart -> " + preset.name,
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1102,6 +1113,7 @@ if (typeof module !== "undefined" && module.exports) {
     diffCharts,
     formatChartDiff,
     formatDiffForClipboard,
+    diffAgainstPreset,
     calmChartText,
     compareSummary,
     csvCell,
@@ -1136,6 +1148,7 @@ if (typeof document !== "undefined") {
   const diffOutput = document.getElementById("diff-output");
   const comparePresetsButton = document.getElementById("compare-presets");
   const copyDiffButton = document.getElementById("copy-diff");
+  const diffCurrentButton = document.getElementById("diff-current");
   const presetFilterStatus = document.getElementById("preset-filter-status");
   const presetsFile = document.getElementById("presets-file");
   const exportPresetsButton = document.getElementById("export-presets");
@@ -1503,6 +1516,19 @@ if (typeof document !== "undefined") {
 
   function renderStats() {
     chartStatsOutput.textContent = formatChartStats(chartStats(chart.value));
+  }
+
+  function diffCurrentAgainstPreset() {
+    const preset = storedPresets().find((item) => item.name === diffRight.value);
+    try {
+      const result = diffAgainstPreset(chart.value, preset);
+      lastDiff = result.diff;
+      lastDiffNames = ["Current chart", preset.name];
+      diffOutput.textContent = result.label + "\n" + formatChartDiff(result.diff);
+      setState("Compared the editor chart with '" + preset.name + "'.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   async function copyChartDiff() {
@@ -1957,6 +1983,7 @@ if (typeof document !== "undefined") {
   duplicatePresetButton.addEventListener("click", duplicateSelectedPreset);
   comparePresetsButton.addEventListener("click", compareSavedPresets);
   copyDiffButton.addEventListener("click", copyChartDiff);
+  diffCurrentButton.addEventListener("click", diffCurrentAgainstPreset);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();

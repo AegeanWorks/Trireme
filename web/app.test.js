@@ -74,6 +74,7 @@ const {
   diffCharts,
   formatChartDiff,
   formatDiffForClipboard,
+  diffAgainstPreset,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -107,7 +108,8 @@ test("the page declares every control the script binds", () => {
     "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
     "duplicate-preset-name", "duplicate-preset",
-    "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-output",
+    "diff-left", "diff-right", "compare-presets", "copy-diff", "diff-current",
+    "diff-output",
     "file", "plan", "clear-editor", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
@@ -822,6 +824,23 @@ test("clipboard diff includes both preset names and the change list", () => {
   assert.match(formatHelpText(), /Copy diff/);
 });
 
+test("current chart diffs against a saved preset with a clear label", () => {
+  const preset = buildLocalPreset(
+    "baseline",
+    "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n",
+    "0,0",
+    "3,0"
+  );
+  const result = diffAgainstPreset("TRIREME-CHART v1\ngrid 4 1\nwind 1 0\n", preset);
+  assert.equal(result.label, "Current chart -> baseline");
+  assert.equal(result.diff.changed, 1);
+  assert.match(formatChartDiff(result.diff), /3 - wind 1 0/);
+  assert.match(formatChartDiff(result.diff), /3 \+ wind 0 0/);
+  assert.throws(() => diffAgainstPreset("x", null), /No saved preset/);
+  assert.throws(() => diffAgainstPreset("x", { name: "empty" }), /No saved preset/);
+  assert.match(formatHelpText(), /Diff current/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -877,6 +896,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-diff"\)/);
   assert.match(source, /copyDiffButton\.addEventListener\("click", copyChartDiff\)/);
   assert.match(source, /formatDiffForClipboard\(lastDiff/);
+  assert.match(source, /getElementById\("diff-current"\)/);
+  assert.match(source, /diffCurrentButton\.addEventListener\("click", diffCurrentAgainstPreset\)/);
+  assert.match(source, /diffAgainstPreset\(chart\.value, preset\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);
