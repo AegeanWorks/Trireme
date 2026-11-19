@@ -248,7 +248,14 @@ test("inspection export is versioned and preserves the document", () => {
   assert.equal(doc.generatedBy, "trireme-web");
   assert.deepEqual(doc.inspection, inspect);
   assert.equal(inspectionJsonFilename(), "trireme-inspection.json");
-  assert.equal(inspectionToJson(inspect), inspectionToJson(inspect));
+  assert.equal(
+    inspectionToJson(inspect),
+    JSON.stringify(
+      { schema: "trireme.inspection/1", generatedBy: "trireme-web", inspection: inspect },
+      null,
+      2
+    ) + "\n"
+  );
   assert.throws(() => inspectionToJson(null), /No inspection/);
   assert.match(formatHelpText(), /Export inspection/);
 });
