@@ -107,6 +107,22 @@ fn compare_uses_the_calm_baseline_for_same_endpoints() {
 }
 
 #[test]
+fn diff_summary_reports_only_counts() {
+    let scratch = Scratch::new();
+    let left = scratch.chart("grid 3 1\nwind 0 0\n");
+    let right = scratch.chart("grid 3 1\nwind 1 0\nland 2 0\n");
+    let text = ok_text(&run(&["diff", &left, &right, "--summary"]));
+    assert!(text.contains("CHART DIFF SUMMARY"));
+    assert!(text.contains("changed=1 added=1 removed=0 total=2"));
+    assert!(!text.contains("wind 0 0"));
+    let json = ok_text(&run(&["diff", &left, &right, "--summary", "--json"]));
+    assert!(json.contains("\"total\":2"));
+    assert!(json.contains("\"added\":1"));
+    let same = ok_text(&run(&["diff", &left, &left, "--summary"]));
+    assert_eq!(same.trim(), "No differences.");
+}
+
+#[test]
 fn diff_compares_two_chart_files_in_text_and_json() {
     let scratch = Scratch::new();
     let left = scratch.chart("grid 3 1\nwind 0 0\n");

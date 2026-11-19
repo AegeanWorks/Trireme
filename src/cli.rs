@@ -16,7 +16,7 @@ trireme — offline sailing route planner for small sea charts
 USAGE:
   trireme route <chart> --from X,Y --to X,Y [--ascii] [--json]
   trireme chart <chart> [--json] [--calm|--stats|--issues|--normalize|--fingerprint]
-  trireme diff <left> <right> [--json]
+  trireme diff <left> <right> [--summary] [--json]
   trireme compare <chart> --from X,Y --to X,Y [--json]
   trireme serve [--port N] [--project DIR]
   trireme help | --help | --version
@@ -401,16 +401,17 @@ fn cmd_chart(args: &[&str]) -> i32 {
 
 fn cmd_diff(args: &[&str]) -> i32 {
     let json_output = args.iter().any(|arg| *arg == "--json");
+    let summary_output = args.iter().any(|arg| *arg == "--summary");
     let paths: Vec<&str> = args
         .iter()
         .copied()
-        .filter(|arg| *arg != "--json")
+        .filter(|arg| *arg != "--json" && *arg != "--summary")
         .collect();
     if paths.len() != 2 || paths[0].starts_with('-') || paths[1].starts_with('-') {
         return fail(
             "diff needs two chart files",
             "A comparison has a left and a right chart.",
-            "Use: trireme diff <left> <right> [--json]",
+            "Use: trireme diff <left> <right> [--summary] [--json]",
         );
     }
     let read = |path: &str| match fs::read_to_string(path) {
@@ -426,6 +427,24 @@ fn cmd_diff(args: &[&str]) -> i32 {
         Err(err) => return fail(&err, "Both charts must be readable.", "Check the paths and retry."),
     };
     let rows = chart::diff(&left, &right);
+    if summary_output {
+        let summary = chart::diff_summary(&rows);
+        if json_output {
+            println!(
+                "{{\"ok\":true,\"changed\":{},\"added\":{},\"removed\":{},\"total\":{}}}",
+                summary.changed, summary.added, summary.removed, summary.total
+            );
+        } else if summary.total == 0 {
+            println!("No differences.");
+        } else {
+            println!("CHART DIFF SUMMARY");
+            println!(
+                "changed={} added={} removed={} total={}",
+                summary.changed, summary.added, summary.removed, summary.total
+            );
+        }
+        return 0;
+    }
     if json_output {
         let items: Vec<String> = rows
             .iter()

@@ -273,6 +273,28 @@ pub struct ChartDiffRow {
     pub right: String,
 }
 
+/// Counts for a line-by-line chart diff.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DiffSummary {
+    pub changed: usize,
+    pub added: usize,
+    pub removed: usize,
+    pub total: usize,
+}
+
+/// Aggregates diff rows into counts.
+pub fn diff_summary(rows: &[ChartDiffRow]) -> DiffSummary {
+    let changed = rows.iter().filter(|row| row.kind == "changed").count();
+    let added = rows.iter().filter(|row| row.kind == "added").count();
+    let removed = rows.iter().filter(|row| row.kind == "removed").count();
+    DiffSummary {
+        changed,
+        added,
+        removed,
+        total: changed + added + removed,
+    }
+}
+
 fn diff_lines(text: &str) -> Vec<String> {
     let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
     let mut lines: Vec<String> = normalized.split('\n').map(str::to_string).collect();
@@ -473,6 +495,21 @@ mod tests {
         for text in without_line {
             assert!(parse(text).is_err(), "accepted: {text}");
         }
+    }
+
+    #[test]
+    fn diff_summary_counts_each_kind() {
+        let rows = diff("a\nb\nc", "a\nx\ny\nz");
+        assert_eq!(
+            diff_summary(&rows),
+            DiffSummary {
+                changed: 2,
+                added: 1,
+                removed: 0,
+                total: 3,
+            }
+        );
+        assert_eq!(diff_summary(&[]).total, 0);
     }
 
     #[test]
