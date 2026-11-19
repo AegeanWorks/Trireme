@@ -440,8 +440,16 @@ pub fn inspection_from_document(raw: &str) -> Result<String, String> {
         }
         _ => return Err("Inspection 'valid' must be true or false.".to_string()),
     }
+    // Preserve the declared generator: a canonical copy should not claim the
+    // browser produced a document that another tool exported.
+    let generated_by = document
+        .get("generatedBy")
+        .and_then(|value| json::string_value(value).ok())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "trireme-web".to_string());
     Ok(format!(
-        "{{\"schema\":\"trireme.inspection/1\",\"generatedBy\":\"trireme-web\",\"inspection\":{inspection}}}"
+        "{{\"schema\":\"trireme.inspection/1\",\"generatedBy\":{},\"inspection\":{inspection}}}",
+        json::quote(&generated_by)
     ))
 }
 
@@ -755,6 +763,14 @@ mod tests {
         // A non-array field named with the word "issues" is not an issues array.
         let fake_issues = "{\"schema\":\"trireme.inspection/1\",\"inspection\":{\"valid\":false,\"note\":\"issues\"}}";
         assert!(inspection_from_document(fake_issues).is_err());
+    }
+
+    #[test]
+    fn canonicalization_preserves_the_declared_generator() {
+        let foreign = "{\"schema\":\"trireme.inspection/1\",\"generatedBy\":\"other-tool\",\"inspection\":{\"valid\":true,\"fingerprint\":\"abc\",\"stats\":{\"width\":2,\"height\":2,\"cells\":4,\"land\":0,\"currents\":0,\"wind\":[0,0]},\"issues\":[]}}";
+        let canonical = inspection_from_document(foreign).unwrap();
+        assert!(canonical.contains("\"generatedBy\":\"other-tool\""), "{canonical}");
+        assert_eq!(inspection_from_document(&canonical).unwrap(), canonical);
     }
 
     #[test]
