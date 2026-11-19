@@ -25,6 +25,8 @@ if __name__ == "__main__":
     print('panel|history|web/index.html#history-title')
     print('button|clear-history|web/index.html#clear-history')
     print('button|export-history|web/index.html#export-history')
+    print('button|import-history|web/index.html#import-history')
+    print('file|history-file|web/index.html#history-file')
     print('output|history-list|web/index.html#history-list')
     print('button|restore|web/index.html#history-list button.restore')
     print('cli|help|--help')

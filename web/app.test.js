@@ -29,6 +29,8 @@ const {
   restoreEntry,
   historyToJson,
   historyJsonFilename,
+  parseHistoryExport,
+  mergeHistory,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -58,7 +60,8 @@ test("the page declares every control the script binds", () => {
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
-    "history-title", "clear-history", "export-history", "history-list",
+    "history-title", "clear-history", "export-history", "import-history",
+    "history-file", "history-list",
   ]) {
     assert.match(html, new RegExp('id="' + id + '"'), "missing control: " + id);
   }
@@ -329,6 +332,38 @@ test("history JSON export keeps charts, endpoints and a stable schema", () => {
   assert.deepEqual(JSON.parse(historyToJson([])).entries, []);
 });
 
+test("history export round-trips through the schema validator", () => {
+  const chartText = "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\n";
+  const entry = historyEntry(
+    { time: 647, steps: ["E"] },
+    { chart: chartText, from: [0, 2], to: [3, 0] },
+    7
+  );
+  const parsed = parseHistoryExport(historyToJson([entry]));
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].chart, chartText);
+  assert.deepEqual(parsed[0].from, [0, 2]);
+  assert.equal(parsed[0].at, 7);
+  assert.throws(() => parseHistoryExport("not json"), /not valid JSON/);
+  assert.throws(() => parseHistoryExport('{"schema":"other","entries":[]}'), /schema/);
+  assert.throws(() => parseHistoryExport('{"schema":"trireme.history/1","entries":[]}'), /no usable entries/);
+  const badChart = {
+    schema: "trireme.history/1",
+    entries: [{ at: 1, time: 2, from: [0, 0], to: [1, 1], chart: "grid 2 2" }],
+  };
+  assert.throws(() => parseHistoryExport(JSON.stringify(badChart)), /no usable entries/);
+});
+
+test("merging histories dedupes, sorts newest first and caps the result", () => {
+  const make = (at) => historyEntry({ time: at, steps: [] }, { chart: "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n", from: [0, 0], to: [1, 1] }, at);
+  const current = [make(5), make(1)];
+  const incoming = [make(3), make(5), make(9)];
+  const merged = mergeHistory(current, incoming, 3);
+  assert.deepEqual(merged.map((entry) => entry.at), [9, 5, 3]);
+  assert.deepEqual(mergeHistory([], []), []);
+  assert.equal(mergeHistory(current, incoming, 3).length, 3);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -353,6 +388,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /formatRouteSummary\(lastRoute\)/);
   assert.match(source, /getElementById\("export-history"\)\.addEventListener/);
   assert.match(source, /historyToJson\(entries\)/);
+  assert.match(source, /getElementById\("import-history"\)\.addEventListener/);
+  assert.match(source, /historyFile\.addEventListener\("change", importHistory\)/);
+  assert.match(source, /parseHistoryExport\(await picked\.text\(\)\)/);
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /type="file" id="file" accept="\.txt,text\/plain"/);
 });

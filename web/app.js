@@ -330,6 +330,61 @@ function historyJsonFilename() {
   return HISTORY_KEY + ".json";
 }
 
+function parseHistoryExport(raw) {
+  let document;
+  try {
+    document = JSON.parse(String(raw));
+  } catch (error) {
+    throw new Error("History file is not valid JSON.");
+  }
+  if (!document || document.schema !== "trireme.history/1" || !Array.isArray(document.entries)) {
+    throw new Error("History file must have schema 'trireme.history/1' and an entries array.");
+  }
+  const entries = [];
+  for (const item of document.entries) {
+    if (!item || typeof item.at !== "number" || typeof item.time !== "number") {
+      continue;
+    }
+    try {
+      restoreEntry(item);
+    } catch (error) {
+      continue;
+    }
+    entries.push({
+      at: item.at,
+      from: item.from,
+      to: item.to,
+      time: item.time,
+      steps: Array.isArray(item.steps) ? item.steps : [],
+      heading: String(item.heading || ""),
+      note: String(item.note || ""),
+      chart: item.chart,
+    });
+  }
+  if (entries.length === 0) {
+    throw new Error("History file contains no usable entries.");
+  }
+  return entries;
+}
+
+function mergeHistory(current, incoming, limit) {
+  const seen = new Set();
+  const cap = Number.isInteger(limit) && limit > 0 ? limit : HISTORY_LIMIT;
+  const sources = [...(Array.isArray(incoming) ? incoming : []), ...(Array.isArray(current) ? current : [])];
+  return sources
+    .filter((entry) => entry && typeof entry.at === "number")
+    .sort((a, b) => b.at - a.at)
+    .filter((entry) => {
+      const key = JSON.stringify([entry.at, entry.from, entry.to, entry.time]);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, cap);
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -341,6 +396,8 @@ if (typeof module !== "undefined" && module.exports) {
     restoreEntry,
     historyToJson,
     historyJsonFilename,
+    parseHistoryExport,
+    mergeHistory,
     PRESETS,
     point,
     applyPreset,
@@ -380,6 +437,7 @@ if (typeof document !== "undefined") {
   const compareDelta = document.getElementById("compare-delta");
   const historyList = document.getElementById("history-list");
   const clearHistory = document.getElementById("clear-history");
+  const historyFile = document.getElementById("history-file");
   let lastRoute = null;
   let chartName = "chart.txt";
 
@@ -461,6 +519,25 @@ if (typeof document !== "undefined") {
     link.click();
     URL.revokeObjectURL(url);
     setState("History exported as " + name + " (" + entries.length + " entries).", "good");
+  }
+
+  async function importHistory() {
+    const picked = historyFile.files && historyFile.files[0];
+    if (!picked) {
+      setState("Choose a trireme.history.json file first.", "bad");
+      return;
+    }
+    try {
+      const incoming = parseHistoryExport(await picked.text());
+      const current = parseHistory(localStorage.getItem(HISTORY_KEY));
+      const merged = mergeHistory(current, incoming);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(merged));
+      historyFile.value = "";
+      renderHistory();
+      setState("Imported " + incoming.length + " entries; " + merged.length + " kept.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   function show(route) {
@@ -701,6 +778,8 @@ if (typeof document !== "undefined") {
     setState("Route history cleared.", "good");
   });
   document.getElementById("export-history").addEventListener("click", exportHistory);
+  document.getElementById("import-history").addEventListener("click", () => historyFile.click());
+  historyFile.addEventListener("change", importHistory);
   historyList.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-index]");
     if (button) {
