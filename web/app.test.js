@@ -8,6 +8,7 @@ const path = require("node:path");
 const {
   PRESETS,
   point,
+  swapEndpoints,
   applyPreset,
   chartFilename,
   validateChartText,
@@ -105,7 +106,8 @@ test("the page declares every control the script binds", () => {
     "open-help", "help-panel", "help-text", "close-help", "bundle-file",
     "import-bundle", "copy-bundle", "reset-local", "bundle-preview",
     "bundle-preview-text", "apply-bundle", "cancel-bundle",
-    "chart", "chart-stats", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
+    "chart", "chart-stats", "chart-issues", "from", "to", "swap-endpoints",
+    "preset", "preset-name", "save-preset",
     "local-preset", "preset-filter", "preset-sort", "preset-filter-status",
     "presets-file", "export-presets", "import-presets", "delete-preset",
     "rename-preset-name", "rename-preset",
@@ -859,6 +861,15 @@ test("preset validation reports valid and broken saved charts", () => {
   assert.match(formatHelpText(), /Validate presets/);
 });
 
+test("swapping endpoints validates and normalizes both coordinates", () => {
+  assert.deepEqual(swapEndpoints("0,2", "7,0"), { from: "7,0", to: "0,2" });
+  assert.deepEqual(swapEndpoints(" 1 , 1 ", "2,3"), { from: "2,3", to: "1,1" });
+  assert.deepEqual(swapEndpoints("4,4", "4,4"), { from: "4,4", to: "4,4" });
+  assert.throws(() => swapEndpoints("bad", "1,1"), /X,Y/);
+  assert.throws(() => swapEndpoints("0,0", "-1,0"), /X,Y/);
+  assert.match(formatHelpText(), /Swap endpoints/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -920,6 +931,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("validate-presets"\)/);
   assert.match(source, /validatePresetsButton\.addEventListener\("click", validateSavedPresets\)/);
   assert.match(source, /formatPresetValidation\(report\)/);
+  assert.match(source, /getElementById\("swap-endpoints"\)/);
+  assert.match(source, /swapEndpointsButton\.addEventListener\("click", swapEditorEndpoints\)/);
+  assert.match(source, /swapEndpoints\(from\.value, to\.value\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);

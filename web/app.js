@@ -20,6 +20,7 @@ const HELP_SECTIONS = {
     ["Ctrl+Shift+C", "Compare with calm water"],
     ["Plan route", "Compute and show the route"],
     ["Clear editor", "Reset chart and endpoints to the default preset"],
+    ["Swap endpoints", "Exchange the from and to coordinates"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
     ["Delete preset", "Remove the selected saved preset"],
@@ -1084,6 +1085,15 @@ function formatPresetValidation(report) {
   return lines.join("\n");
 }
 
+function swapEndpoints(from, to) {
+  const a = point(from);
+  const b = point(to);
+  return {
+    from: b.join(","),
+    to: a.join(","),
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1136,6 +1146,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatPresetValidation,
     PRESETS,
     point,
+    swapEndpoints,
     applyPreset,
     defaultEditorState,
     chartFilename,
@@ -1195,6 +1206,7 @@ if (typeof document !== "undefined") {
   const duplicatePresetName = document.getElementById("duplicate-preset-name");
   const duplicatePresetButton = document.getElementById("duplicate-preset");
   const file = document.getElementById("file");
+  const swapEndpointsButton = document.getElementById("swap-endpoints");
   const issuesPanel = document.getElementById("chart-issues");
   const chartStatsOutput = document.getElementById("chart-stats");
   const status = document.getElementById("status");
@@ -1251,6 +1263,18 @@ if (typeof document !== "undefined") {
     chartName = "chart.txt";
     reset();
     setState("Editor reset to the default chart.", "good");
+  }
+
+  function swapEditorEndpoints() {
+    try {
+      const swapped = swapEndpoints(from.value, to.value);
+      from.value = swapped.from;
+      to.value = swapped.to;
+      reset();
+      setState("Endpoints swapped.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
   }
 
   function openHelp() {
@@ -1990,6 +2014,7 @@ if (typeof document !== "undefined") {
 
   document.getElementById("plan").addEventListener("click", plan);
   document.getElementById("clear-editor").addEventListener("click", clearEditor);
+  swapEndpointsButton.addEventListener("click", swapEditorEndpoints);
   document.getElementById("save").addEventListener("click", save);
   document.getElementById("load").addEventListener("click", load);
   document.getElementById("import").addEventListener("click", importChart);
