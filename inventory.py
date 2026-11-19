@@ -59,6 +59,7 @@ if __name__ == "__main__":
     print('button|copy-markdown|web/index.html#copy-markdown')
     print('panel|history|web/index.html#history-title')
     print('button|clear-history|web/index.html#clear-history')
+    print('button|undo-history|web/index.html#undo-history')
     print('button|export-history|web/index.html#export-history')
     print('button|export-history-csv|web/index.html#export-history-csv')
     print('button|import-history|web/index.html#import-history')

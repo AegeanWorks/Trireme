@@ -10,7 +10,7 @@
 - **Total Classes**: `0`
 - **Total Top-Level Functions**: `3`
 - **Total Class Methods**: `0`
-- **Total Source Lines**: `162`
+- **Total Source Lines**: `163`
 
 ## 🧭 Map Coverage
 - **Indexed**: python (`2` module(s))
@@ -37,6 +37,6 @@
 ### [`inventory.py`](inventory.py)
 > *Project-owned UI inventory: one `kind|name|locator` line per control.*
 
-**Size**: `89` lines
+**Size**: `90` lines
 
 ---

@@ -45,6 +45,7 @@ const HELP_SECTIONS = {
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
     ["Copy history summary", "Copy the history overview to the clipboard"],
     ["Filter / Sort history", "Search and order saved plans"],
+    ["Undo last plan", "Remove only the newest history entry"],
     ["Reset local data", "Click twice to clear chart, presets and history"],
     ["Copy all data", "Copy a versioned JSON bundle to the clipboard"],
     ["Import bundle", "Load a trireme.bundle/1 file into this browser"],
@@ -1268,12 +1269,20 @@ function formatPresetStatsForClipboard(preset) {
   );
 }
 
+function removeLastHistoryEntry(entries, note) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error(note || "No history entry to remove.");
+  }
+  return entries.slice(1);
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
     HISTORY_LIMIT,
     historyEntry,
     appendHistory,
+    removeLastHistoryEntry,
     parseHistory,
     formatHistoryEntry,
     restoreEntry,
@@ -1414,6 +1423,7 @@ if (typeof document !== "undefined") {
   const historyList = document.getElementById("history-list");
   const historySummaryOutput = document.getElementById("history-summary");
   const copyHistorySummaryButton = document.getElementById("copy-history-summary");
+  const undoHistoryButton = document.getElementById("undo-history");
   const historyFilter = document.getElementById("history-filter");
   const historySort = document.getElementById("history-sort");
   const historyFilterStatus = document.getElementById("history-filter-status");
@@ -1919,6 +1929,18 @@ if (typeof document !== "undefined") {
     }
   }
 
+  function undoLastHistoryEntry() {
+    const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    try {
+      const remaining = removeLastHistoryEntry(entries);
+      localStorage.setItem(HISTORY_KEY, historyToJson(remaining));
+      renderHistory();
+      setState("Removed the newest history entry; " + remaining.length + " plans kept.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
   function exportHistory() {
     const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
     const name = historyJsonFilename();
@@ -2374,6 +2396,7 @@ if (typeof document !== "undefined") {
     renderHistory();
     setState("Route history cleared.", "good");
   });
+  undoHistoryButton.addEventListener("click", undoLastHistoryEntry);
   document.getElementById("export-history").addEventListener("click", exportHistory);
   document.getElementById("export-history-csv").addEventListener("click", exportHistoryCsv);
   copyHistorySummaryButton.addEventListener("click", copyHistorySummary);

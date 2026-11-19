@@ -58,6 +58,7 @@ const {
   parsePresetsExport,
   mergePresetFiles,
   removeLocalPreset,
+  removeLastHistoryEntry,
   LOCAL_DATA_KEYS,
   resetPlan,
   formatResetSummary,
@@ -130,7 +131,8 @@ test("the page declares every control the script binds", () => {
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
-    "history-title", "history-summary", "copy-history-summary", "clear-history", "export-history-csv",
+    "history-title", "history-summary", "copy-history-summary", "undo-history",
+    "clear-history", "export-history-csv",
     "export-history", "import-history",
     "history-file", "history-list", "history-filter", "history-sort",
     "history-filter-status",
@@ -1022,6 +1024,20 @@ test("preset stats clipboard block names the preset and its chart", () => {
   assert.match(formatHelpText(), /Copy preset stats/);
 });
 
+test("undo drops only the newest history entry without mutating", () => {
+  const c = "TRIREME-CHART v1\ngrid 2 2\nwind 0 0\n";
+  const a = historyEntry({ time: 1, steps: [] }, { chart: c, from: [0, 0], to: [1, 1] }, 1);
+  const b = historyEntry({ time: 2, steps: [] }, { chart: c, from: [0, 0], to: [1, 1] }, 2);
+  const original = [b, a];
+  assert.deepEqual(removeLastHistoryEntry(original), [a]);
+  assert.deepEqual(original.map((item) => item.at), [2, 1]);
+  assert.deepEqual(removeLastHistoryEntry([b]), []);
+  assert.throws(() => removeLastHistoryEntry([]), /No history entry/);
+  assert.throws(() => removeLastHistoryEntry(null), /No history entry/);
+  assert.throws(() => removeLastHistoryEntry([], "custom"), /custom/);
+  assert.match(formatHelpText(), /Undo last plan/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -1106,6 +1122,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /getElementById\("copy-preset-stats"\)/);
   assert.match(source, /copyPresetStatsButton\.addEventListener\("click", copyPresetStats\)/);
   assert.match(source, /formatPresetStatsForClipboard\(preset\)/);
+  assert.match(source, /getElementById\("undo-history"\)/);
+  assert.match(source, /undoHistoryButton\.addEventListener\("click", undoLastHistoryEntry\)/);
+  assert.match(source, /removeLastHistoryEntry\(entries\)/);
   assert.match(source, /getElementById\("copy-markdown"\)/);
   assert.match(source, /copyMarkdownButton\.addEventListener\("click", copyRouteMarkdown\)/);
   assert.match(source, /formatRouteAsMarkdown\(lastRoute\)/);
