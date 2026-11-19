@@ -344,7 +344,7 @@ function formatChartIssues(issues) {
     return "No chart issues.";
   }
   return issues
-    .map((issue) => "line " + (issue.line || "?") + ": " + issue.message)
+    .map((issue) => (issue.line ? "line " + issue.line : "chart") + ": " + issue.message)
     .join("\n");
 }
 

@@ -343,6 +343,10 @@ test("chart issues name the offending line numbers", () => {
       "line 6: unknown directive 'unknown'."
   );
   assert.equal(formatChartIssues([]), "No chart issues.");
+  assert.equal(
+    formatChartIssues([{ line: 0, message: "Chart needs a 'grid' line." }]),
+    "chart: Chart needs a 'grid' line."
+  );
 });
 
 test("chart issues catch a wrong header and duplicate directives", () => {
