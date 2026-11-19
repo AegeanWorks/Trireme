@@ -21,6 +21,7 @@ const HELP_SECTIONS = {
     ["Plan route", "Compute and show the route"],
     ["Compare with calm", "Zero wind and currents, then compare"],
     ["Save as preset", "Store chart and endpoints locally"],
+    ["Delete preset", "Remove the selected saved preset"],
     ["Export route (JSON/CSV)", "Download the last route"],
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
@@ -651,6 +652,16 @@ function mergePresetFiles(current, incoming, limit) {
     .slice(0, cap);
 }
 
+function removeLocalPreset(presets, name) {
+  const target = normalizePresetName(name);
+  if (!Array.isArray(presets)) {
+    return [];
+  }
+  return presets.filter(
+    (item) => !item || normalizePresetName(item.name) !== target
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -681,6 +692,7 @@ if (typeof module !== "undefined" && module.exports) {
     presetFilename,
     parsePresetsExport,
     mergePresetFiles,
+    removeLocalPreset,
     PRESETS,
     point,
     applyPreset,
@@ -713,6 +725,7 @@ if (typeof document !== "undefined") {
   const presetsFile = document.getElementById("presets-file");
   const exportPresetsButton = document.getElementById("export-presets");
   const importPresetsButton = document.getElementById("import-presets");
+  const deletePresetButton = document.getElementById("delete-preset");
   const file = document.getElementById("file");
   const issuesPanel = document.getElementById("chart-issues");
   const status = document.getElementById("status");
@@ -829,6 +842,18 @@ if (typeof document !== "undefined") {
     } catch (error) {
       setState(String(error.message), "bad");
     }
+  }
+
+  function deleteSelectedPreset() {
+    const name = localPreset.value;
+    if (!name) {
+      setState("Select a saved preset to delete.", "bad");
+      return;
+    }
+    const remaining = removeLocalPreset(storedPresets(), name);
+    localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(remaining));
+    renderLocalPresets();
+    setState("Preset '" + name + "' deleted.", "good");
   }
 
   function applyLocalPreset() {
@@ -1244,6 +1269,7 @@ if (typeof document !== "undefined") {
   exportPresetsButton.addEventListener("click", exportPresets);
   importPresetsButton.addEventListener("click", () => presetsFile.click());
   presetsFile.addEventListener("change", importPresets);
+  deletePresetButton.addEventListener("click", deleteSelectedPreset);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();

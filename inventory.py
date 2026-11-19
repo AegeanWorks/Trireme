@@ -11,6 +11,7 @@ if __name__ == "__main__":
     print('file|presets-file|web/index.html#presets-file')
     print('button|export-presets|web/index.html#export-presets')
     print('button|import-presets|web/index.html#import-presets')
+    print('button|delete-preset|web/index.html#delete-preset')
     print('textarea|chart|web/index.html#chart')
     print('output|chart-issues|web/index.html#chart-issues')
     print('input|from|web/index.html#from')
