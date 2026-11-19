@@ -38,6 +38,13 @@ const {
   filterHistory,
   historyFilterSummary,
   sortHistory,
+  LOCAL_PRESETS_KEY,
+  LOCAL_PRESET_LIMIT,
+  normalizePresetName,
+  buildLocalPreset,
+  parseLocalPresets,
+  mergeLocalPresets,
+  localPresetsToJson,
 } = require("./app.js");
 
 test("point accepts X,Y and rejects malformed endpoints", () => {
@@ -63,7 +70,8 @@ test("every preset yields a parseable chart header and valid endpoints", () => {
 test("the page declares every control the script binds", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   for (const id of [
-    "chart", "chart-issues", "from", "to", "preset", "file", "plan", "compare", "save",
+    "chart", "chart-issues", "from", "to", "preset", "preset-name", "save-preset",
+    "local-preset", "file", "plan", "compare", "save",
     "load", "import", "download", "export", "export-csv", "copy-summary", "map", "step-times",
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
@@ -461,6 +469,51 @@ test("history sort orders by date or time without mutating input", () => {
   assert.equal(sortHistory(tied, "newest").length, 2);
 });
 
+test("named presets validate, store and round-trip", () => {
+  const chartText = "TRIREME-CHART v1\r\ngrid 4 3\r\nwind 1 0\r\n";
+  assert.equal(normalizePresetName("  my  run "), "my run");
+  for (const bad of ["", "a".repeat(33), "bad/name", "-start"]) {
+    assert.throws(() => normalizePresetName(bad));
+  }
+  const preset = buildLocalPreset("My Run", chartText, "0,2", "3,0");
+  assert.deepEqual(preset, {
+    name: "My Run",
+    chart: "TRIREME-CHART v1\ngrid 4 3\nwind 1 0\n",
+    from: "0,2",
+    to: "3,0",
+  });
+  assert.throws(() => buildLocalPreset("ok", "grid 2 2\nwind 0 0\n", "0,0", "1,1"), /TRIREME-CHART/);
+  assert.throws(() => buildLocalPreset("ok", chartText, "bad", "1,1"), /X,Y/);
+
+  const stored = localPresetsToJson([preset]);
+  const parsed = parseLocalPresets(stored);
+  assert.deepEqual(parsed, [preset]);
+  assert.deepEqual(parseLocalPresets(null), []);
+  assert.deepEqual(parseLocalPresets("not json"), []);
+  assert.deepEqual(parseLocalPresets('{"schema":"other","presets":[]}'), []);
+  assert.equal(LOCAL_PRESETS_KEY, "trireme.presets");
+  assert.equal(LOCAL_PRESET_LIMIT, 20);
+});
+
+test("saving a preset replaces a name and keeps names sorted", () => {
+  const make = (name, time) =>
+    buildLocalPreset(
+      name,
+      "TRIREME-CHART v1\ngrid 4 1\nwind 0 0\n",
+      "0,0",
+      "3,0"
+    );
+  const alpha = make("alpha");
+  const zeta = make("zeta");
+  const updated = buildLocalPreset("alpha", "TRIREME-CHART v1\ngrid 5 1\nwind 1 0\n", "0,0", "4,0");
+  const merged = mergeLocalPresets([zeta, alpha], updated);
+  assert.deepEqual(merged.map((p) => p.name), ["alpha", "zeta"]);
+  assert.equal(merged[0].chart, updated.chart);
+  assert.equal(mergeLocalPresets([], alpha, 1).length, 1);
+  const doc = JSON.parse(localPresetsToJson(merged));
+  assert.equal(doc.schema, "trireme.presets/1");
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -475,6 +528,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /localStorage\.setItem\(HISTORY_KEY/);
   assert.match(source, /historySort\.addEventListener\("change", renderHistory\)/);
   assert.match(source, /sortHistory\(/);
+  assert.match(source, /getElementById\("save-preset"\)/);
+  assert.match(source, /savePresetButton\.addEventListener\("click", saveNamedPreset\)/);
+  assert.match(source, /localPreset\.addEventListener\("change", applyLocalPreset\)/);
   assert.match(source, /const visible = sortHistory\(/);
   assert.match(source, /historyList\.addEventListener\("click"/);
   assert.match(source, /function restoreHistory\(index\)/);

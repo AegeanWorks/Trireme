@@ -499,6 +499,76 @@ function sortHistory(entries, mode) {
   }
 }
 
+const LOCAL_PRESETS_KEY = "trireme.presets";
+const LOCAL_PRESET_LIMIT = 20;
+
+function normalizePresetName(raw) {
+  const name = String(raw || "").trim().replace(/\s+/g, " ");
+  if (!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,31}$/.test(name)) {
+    throw new Error("Preset name must be 1-32 letters, digits, spaces, '-' or '_'.");
+  }
+  return name;
+}
+
+function buildLocalPreset(name, chartText, fromValue, toValue) {
+  const cleanName = normalizePresetName(name);
+  const cleanChart = validateChartText(chartText);
+  point(fromValue);
+  point(toValue);
+  return { name: cleanName, chart: cleanChart, from: fromValue, to: toValue };
+}
+
+function parseLocalPresets(raw) {
+  if (!raw) {
+    return [];
+  }
+  let document;
+  try {
+    document = JSON.parse(raw);
+  } catch (error) {
+    return [];
+  }
+  if (!document || document.schema !== "trireme.presets/1" || !Array.isArray(document.presets)) {
+    return [];
+  }
+  return document.presets
+    .filter((preset) => {
+      if (!preset || typeof preset.name !== "string") {
+        return false;
+      }
+      try {
+        normalizePresetName(preset.name);
+        validateChartText(preset.chart);
+        point(preset.from);
+        point(preset.to);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    })
+    .map((preset) => ({
+      name: normalizePresetName(preset.name),
+      chart: String(preset.chart),
+      from: String(preset.from),
+      to: String(preset.to),
+    }));
+}
+
+function mergeLocalPresets(presets, preset, limit) {
+  const cap = Number.isInteger(limit) && limit > 0 ? limit : LOCAL_PRESET_LIMIT;
+  const list = Array.isArray(presets) ? presets.filter((item) => item && item.name) : [];
+  const rest = list.filter((item) => normalizePresetName(item.name) !== preset.name);
+  return [preset, ...rest]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, cap);
+}
+
+function localPresetsToJson(presets) {
+  const clean = Array.isArray(presets) ? presets : [];
+  const sorted = clean.slice().sort((a, b) => a.name.localeCompare(b.name));
+  return JSON.stringify({ schema: "trireme.presets/1", presets: sorted }, null, 2) + "\n";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -517,6 +587,13 @@ if (typeof module !== "undefined" && module.exports) {
     filterHistory,
     historyFilterSummary,
     sortHistory,
+    LOCAL_PRESETS_KEY,
+    LOCAL_PRESET_LIMIT,
+    normalizePresetName,
+    buildLocalPreset,
+    parseLocalPresets,
+    mergeLocalPresets,
+    localPresetsToJson,
     PRESETS,
     point,
     applyPreset,
@@ -541,6 +618,9 @@ if (typeof document !== "undefined") {
   const from = document.getElementById("from");
   const to = document.getElementById("to");
   const preset = document.getElementById("preset");
+  const presetName = document.getElementById("preset-name");
+  const savePresetButton = document.getElementById("save-preset");
+  const localPreset = document.getElementById("local-preset");
   const file = document.getElementById("file");
   const issuesPanel = document.getElementById("chart-issues");
   const status = document.getElementById("status");
@@ -581,6 +661,54 @@ if (typeof document !== "undefined") {
     issuesPanel.hidden = issues.length === 0;
     issuesPanel.textContent = formatChartIssues(issues);
     return issues.length;
+  }
+
+  function storedPresets() {
+    return parseLocalPresets(localStorage.getItem(LOCAL_PRESETS_KEY));
+  }
+
+  function renderLocalPresets() {
+    const saved = storedPresets();
+    localPreset.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = saved.length ? "Load a saved preset…" : "No saved presets";
+    localPreset.appendChild(placeholder);
+    for (const item of saved) {
+      const option = document.createElement("option");
+      option.value = item.name;
+      option.textContent = item.name;
+      localPreset.appendChild(option);
+    }
+  }
+
+  function saveNamedPreset() {
+    try {
+      const item = buildLocalPreset(presetName.value, chart.value, from.value, to.value);
+      const merged = mergeLocalPresets(storedPresets(), item);
+      localStorage.setItem(LOCAL_PRESETS_KEY, localPresetsToJson(merged));
+      presetName.value = "";
+      localPreset.value = item.name;
+      renderLocalPresets();
+      localPreset.value = item.name;
+      setState("Preset '" + item.name + "' saved locally.", "good");
+    } catch (error) {
+      setState(String(error.message), "bad");
+    }
+  }
+
+  function applyLocalPreset() {
+    const item = storedPresets().find((entry) => entry.name === localPreset.value);
+    if (!item) {
+      return;
+    }
+    chart.value = item.chart;
+    renderIssues();
+    from.value = item.from;
+    to.value = item.to;
+    chartName = "preset-" + item.name.replace(/\s+/g, "-") + ".txt";
+    reset();
+    setState("Preset '" + item.name + "' loaded.", "good");
   }
 
   function renderHistory() {
@@ -976,6 +1104,9 @@ if (typeof document !== "undefined") {
     }
   });
   renderHistory();
+  renderLocalPresets();
+  savePresetButton.addEventListener("click", saveNamedPreset);
+  localPreset.addEventListener("change", applyLocalPreset);
   historyFilter.addEventListener("input", renderHistory);
   historySort.addEventListener("change", renderHistory);
   renderIssues();
