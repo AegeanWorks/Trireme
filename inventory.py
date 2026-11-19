@@ -64,6 +64,7 @@ if __name__ == "__main__":
     print('button|cancel-import|web/index.html#cancel-import')
     print('output|history-list|web/index.html#history-list')
     print('output|history-summary|web/index.html#history-summary')
+    print('button|copy-history-summary|web/index.html#copy-history-summary')
     print('input|history-filter|web/index.html#history-filter')
     print('output|history-filter-status|web/index.html#history-filter-status')
     print('select|history-sort|web/index.html#history-sort')

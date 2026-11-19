@@ -40,6 +40,7 @@ const {
   historyFilterSummary,
   historySummary,
   formatHistorySummary,
+  formatHistorySummaryForClipboard,
   sortHistory,
   LOCAL_PRESETS_KEY,
   LOCAL_PRESET_LIMIT,
@@ -122,7 +123,7 @@ test("the page declares every control the script binds", () => {
     "compare-panel",
     "compare-summary", "compare-current", "compare-calm", "compare-delta",
     "export-compare-csv",
-    "history-title", "history-summary", "clear-history", "export-history-csv",
+    "history-title", "history-summary", "copy-history-summary", "clear-history", "export-history-csv",
     "export-history", "import-history",
     "history-file", "history-list", "history-filter", "history-sort",
     "history-filter-status",
@@ -912,6 +913,23 @@ test("history summary aggregates plans, time and charts", () => {
   assert.throws(() => formatHistorySummary(null), /No history summary/);
 });
 
+test("clipboard history summary is a labelled plain-text block", () => {
+  const text = formatHistorySummaryForClipboard(
+    historySummary([
+      historyEntry({ time: 300, steps: ["E"] }, { chart: "c", from: [0, 0], to: [1, 0] }, 7),
+    ])
+  );
+  assert.match(text, /^Trireme history summary\n/);
+  assert.match(text, /Plans: 1 \u00b7 total steps: 1 \u00b7 unique charts: 1/);
+  assert.match(text, /Time: fastest 300, slowest 300, average 300 units/);
+  assert.equal(text, formatHistorySummaryForClipboard(historySummary([
+    historyEntry({ time: 300, steps: ["E"] }, { chart: "c", from: [0, 0], to: [1, 0] }, 7),
+  ])));
+  assert.match(formatHistorySummaryForClipboard(historySummary([])), /No saved plans yet\./);
+  assert.throws(() => formatHistorySummaryForClipboard(null), /No history summary/);
+  assert.match(formatHelpText(), /Copy history summary/);
+});
+
 test("the page wires file import and chart download", () => {
   const source = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
   assert.match(source, /getElementById\("import"\)\.addEventListener/);
@@ -981,6 +999,9 @@ test("the page wires file import and chart download", () => {
   assert.match(source, /formatChartForClipboard\(chart\.value, from\.value, to\.value\)/);
   assert.match(source, /getElementById\("history-summary"\)/);
   assert.match(source, /formatHistorySummary\(historySummary\(entries\)\)/);
+  assert.match(source, /getElementById\("copy-history-summary"\)/);
+  assert.match(source, /copyHistorySummaryButton\.addEventListener\("click", copyHistorySummary\)/);
+  assert.match(source, /formatHistorySummaryForClipboard\(historySummary\(entries\)\)/);
   assert.match(source, /getElementById\("chart-stats"\)/);
   assert.match(source, /formatChartStats\(chartStats\(chart\.value\)\)/);
   assert.match(source, /const visible = sortHistory\(/);

@@ -38,6 +38,7 @@ const HELP_SECTIONS = {
     ["Copy summary", "Copy a plain-text report"],
     ["Import / Export JSON", "Move route history between browsers"],
     ["Export history CSV", "Download the visible plans as a spreadsheet"],
+    ["Copy history summary", "Copy the history overview to the clipboard"],
     ["Filter / Sort history", "Search and order saved plans"],
     ["Reset local data", "Click twice to clear chart, presets and history"],
     ["Copy all data", "Copy a versioned JSON bundle to the clipboard"],
@@ -1162,6 +1163,10 @@ function formatHistorySummary(summary) {
   ].join("\n");
 }
 
+function formatHistorySummaryForClipboard(summary) {
+  return "Trireme history summary\n" + formatHistorySummary(summary) + "\n";
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     HISTORY_KEY,
@@ -1183,6 +1188,7 @@ if (typeof module !== "undefined" && module.exports) {
     historyFilterSummary,
     historySummary,
     formatHistorySummary,
+    formatHistorySummaryForClipboard,
     sortHistory,
     filterLocalPresets,
     presetFilterSummary,
@@ -1296,6 +1302,7 @@ if (typeof document !== "undefined") {
   const compareDelta = document.getElementById("compare-delta");
   const historyList = document.getElementById("history-list");
   const historySummaryOutput = document.getElementById("history-summary");
+  const copyHistorySummaryButton = document.getElementById("copy-history-summary");
   const historyFilter = document.getElementById("history-filter");
   const historySort = document.getElementById("history-sort");
   const historyFilterStatus = document.getElementById("history-filter-status");
@@ -1797,6 +1804,26 @@ if (typeof document !== "undefined") {
     setState("History exported as " + name + " (" + entries.length + " entries).", "good");
   }
 
+  async function copyHistorySummary() {
+    const entries = parseHistory(localStorage.getItem(HISTORY_KEY));
+    const text = formatHistorySummaryForClipboard(historySummary(entries));
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      setState("History summary copied to the clipboard.", "good");
+    } catch (error) {
+      setState("Clipboard unavailable: " + error, "bad");
+    }
+  }
+
   function exportHistoryCsv() {
     const entries = sortHistory(
       filterHistory(
@@ -2125,6 +2152,7 @@ if (typeof document !== "undefined") {
   });
   document.getElementById("export-history").addEventListener("click", exportHistory);
   document.getElementById("export-history-csv").addEventListener("click", exportHistoryCsv);
+  copyHistorySummaryButton.addEventListener("click", copyHistorySummary);
   document.getElementById("import-history").addEventListener("click", () => historyFile.click());
   historyFile.addEventListener("change", importHistory);
   applyImport.addEventListener("click", applyPendingImport);
